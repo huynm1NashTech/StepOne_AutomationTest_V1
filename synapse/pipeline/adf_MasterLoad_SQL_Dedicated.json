@@ -1,0 +1,104 @@
+{
+	"name": "adf_MasterLoad_SQL_Dedicated",
+	"properties": {
+		"activities": [
+			{
+				"name": "exc_Load_DimVenue",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_DimVenue_SQL_Dedicated",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "exc_Load_DimEvent",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "exc_Load_DimVenue",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "exec_Load_Category",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_DimEvent_SQL_Dedicated",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "exc_Load_DimUser",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_DimUser_SQL_Dedicated",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "exc_Load_FactSales",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "exc_Load_DimEvent",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "exc_Load_DimUser",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_FactSales_Dedicated_SQL",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "exec_Load_Category",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_DimCategory_SQL_Dedicated",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			}
+		],
+		"folder": {
+			"name": "datamart/dedicated_pool"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-09-30T10:37:33Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

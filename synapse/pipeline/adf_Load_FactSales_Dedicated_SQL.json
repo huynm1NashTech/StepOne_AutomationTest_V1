@@ -1,0 +1,33 @@
+{
+	"name": "adf_Load_FactSales_Dedicated_SQL",
+	"properties": {
+		"activities": [
+			{
+				"name": "Load_FactSales_Dedicated_SQL",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "Load_FactSales_Dedicated_SQL",
+						"type": "NotebookReference"
+					},
+					"snapshot": true
+				}
+			}
+		],
+		"folder": {
+			"name": "datamart/dedicated_pool"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-09-30T10:37:32Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

@@ -1,0 +1,390 @@
+{
+	"name": "Load_DimEvent",
+	"properties": {
+		"folder": {
+			"name": "Delta_Load_Job"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "mainpool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/37b25916-1e2d-4883-bb99-00f8f55f2a88/resourceGroups/DataPractice/providers/Microsoft.Synapse/workspaces/synapse-ia137-dev/bigDataPools/mainpool",
+				"name": "mainpool",
+				"type": "Spark",
+				"endpoint": "https://synapse-ia137-dev.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/mainpool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.1",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"#Get parameters here\r\n",
+					"param_run_date = '2021-10-01'\r\n",
+					"param_batch_id = 1\r\n",
+					"param_db_data_lake_path='/bronze/database/tickit/'\r\n",
+					"#param_file_data_lake_path = \"/bronze/flatfile/\""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"source_count = 0\r\n",
+					"target_count = 0"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Get path to retrieve data\r\n",
+					"run_date_replace = param_run_date.replace(\"-\",\"/\")\r\n",
+					"db_data_lake_path = param_db_data_lake_path + \"event/\" + run_date_replace + \"/\"\r\n",
+					"#file_data_lake_path = param_file_data_lake_path + \"event/\""
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_parquet = spark.read.parquet(db_data_lake_path)"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"source_count = df_parquet.count()"
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_parquet.createOrReplaceTempView(\"stg_event\")"
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"SELECT 1 FROM dim_venue LIMIT 1;"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_event = spark.sql(\"SELECT  e.eventid, \\\r\n",
+					"                       CASE WHEN v.venuename IS NULL THEN -1 ELSE v.venue_key END as venue_key, \\\r\n",
+					"                       CASE WHEN c.catname IS NULL THEN -1 ELSE c.cat_key END as cat_key, \\\r\n",
+					"                       e.dateid, \\\r\n",
+					"                       e.eventname, \\\r\n",
+					"                       e.starttime \\\r\n",
+					"              FROM stg_event e \\\r\n",
+					"              LEFT JOIN dim_venue v ON e.venuename = v.venuename \\\r\n",
+					"              LEFT JOIN dim_category c ON e.categoryname =c.catname \\\r\n",
+					"              \")\r\n",
+					"df_event.show(20)"
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Create hash column\r\n",
+					"from pyspark.sql.functions import sha2, concat_ws\r\n",
+					"df_event = df_event.withColumn(\"hash_value\", sha2(concat_ws(\"||\", *df_event.columns[1:]), 256))"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Remove duplicated data\r\n",
+					"df_event.createOrReplaceTempView(\"stg_event\")\r\n",
+					"df_event = spark.sql(\"SELECT *, ROW_NUMBER() OVER (PARTITION BY hash_value ORDER BY eventid DESC) as row_num FROM stg_event\")\r\n",
+					"df_event = df_event.filter(\"row_num == 1\")"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Add more 2 columns batch id and run_date\r\n",
+					"from pyspark.sql.functions import lit\r\n",
+					"df_event = df_event.withColumn('batch_id', lit(param_batch_id))\r\n",
+					"df_event = df_event.withColumn('run_date', lit(param_run_date))"
+				],
+				"execution_count": 14
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Convert dataframe to table to use in SQL\r\n",
+					"df_event.createOrReplaceTempView(\"stg_event\")"
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"target_count = df_event.count()"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"MERGE INTO dim_event AS trg\r\n",
+					"USING\r\n",
+					"(\r\n",
+					"    SELECT row_number() OVER (PARTITION BY CASE WHEN dm.event_key IS NULL THEN 1 ELSE 0 END ORDER BY dm.event_key) as row_num,\r\n",
+					"           (SELECT CASE WHEN MAX(event_key)<0 THEN 0\r\n",
+					"                        ELSE MAX(event_key) END FROM dim_event) AS maxid,\r\n",
+					"           stg.eventid,\r\n",
+					"           stg.venue_key,\r\n",
+					"           stg.cat_key,\r\n",
+					"           stg.dateid,\r\n",
+					"           stg.eventname,\r\n",
+					"           stg.starttime,\r\n",
+					"           stg.run_date,\r\n",
+					"           stg.batch_id,\r\n",
+					"           stg.hash_value\r\n",
+					"    FROM stg_event stg\r\n",
+					"    LEFT JOIN dim_event dm ON stg.eventid = dm.event_key\r\n",
+					") AS scr ON scr.eventid = trg.event_key\r\n",
+					"WHEN MATCHED THEN\r\n",
+					"        UPDATE SET\r\n",
+					"                    venue_key = scr.venue_key,\r\n",
+					"                    cat_key = scr.cat_key,\r\n",
+					"                    date_key = scr.dateid,\r\n",
+					"                    eventname = scr.eventname,\r\n",
+					"                    starttime = scr.starttime,\r\n",
+					"                    run_date = scr.run_date,\r\n",
+					"                    batch_id = scr.batch_id,\r\n",
+					"                    hash = scr.hash_value,\r\n",
+					"                    update_date = current_date()\r\n",
+					"WHEN NOT MATCHED THEN \r\n",
+					"        INSERT(event_key, venue_key,cat_key,date_key,eventname,starttime,update_date,run_date,batch_id,hash)\r\n",
+					"        VALUES(scr.eventid, scr.venue_key,scr.cat_key,scr.dateid,scr.eventname,scr.starttime,current_date(),scr.run_date,scr.batch_id,scr.hash_value)  "
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"output = str(source_count) + \",\" + str(target_count)\r\n",
+					"mssparkutils.notebook.exit(output)"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

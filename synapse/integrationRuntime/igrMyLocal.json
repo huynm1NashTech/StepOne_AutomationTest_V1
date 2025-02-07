@@ -1,0 +1,6 @@
+{
+	"name": "igrMyLocal",
+	"properties": {
+		"type": "SelfHosted"
+	}
+}

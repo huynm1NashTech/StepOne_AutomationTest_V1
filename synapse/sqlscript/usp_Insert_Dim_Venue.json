@@ -1,0 +1,20 @@
+{
+	"name": "usp_Insert_Dim_Venue",
+	"properties": {
+		"folder": {
+			"name": "Dedicated_SQL"
+		},
+		"content": {
+			"query": "CREATE PROC usp_Insert_Dim_Venue\nAS\nBEGIN\nMERGE INTO dim_venue AS trg\nUSING\n(\n    SELECT row_number() OVER (PARTITION BY CASE WHEN dm.venue_key IS NULL THEN 1 ELSE 0 END ORDER BY dm.venue_key) as row_num,\n           (SELECT CASE WHEN MAX(venue_key)<0 THEN 0 \n                        ELSE MAX(venue_key) END FROM dim_venue) AS maxid,\n           stg.venuename,\n           stg.venuecity,\n           stg.venueseats,\n           stg.venuestate,\n           stg.run_date,\n           stg.batch_id,\n           stg.hash_value\n    FROM stg_venue stg\n    LEFT JOIN dim_venue dm ON stg.venuename = dm.venuename\n) AS scr ON scr.venuename = trg.venuename \nWHEN MATCHED THEN\n        UPDATE SET\n                    venuecity = scr.venuecity,\n                    venuestate = scr.venuestate,\n                    venueseats = scr.venueseats,\n                    run_date = scr.run_date,\n                    batch_id = scr.batch_id,\n                    hash = scr.hash_value,\n                    update_date = GETDATE()\nWHEN NOT MATCHED THEN \n        INSERT(venue_key, venuename,venuecity,venuestate,venueseats,update_date,run_date,batch_id,hash)\n        VALUES(scr.row_num + scr.maxid, scr.venuename,scr.venuecity,scr.venuestate,scr.venueseats,GETDATE(),scr.run_date,scr.batch_id,scr.hash_value);  \nEND\n\n\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "dw_tickit",
+				"poolName": "dw_tickit"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

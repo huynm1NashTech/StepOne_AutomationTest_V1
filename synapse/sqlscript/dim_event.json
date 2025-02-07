@@ -1,0 +1,20 @@
+{
+	"name": "dim_event",
+	"properties": {
+		"folder": {
+			"name": "Dedicated_SQL"
+		},
+		"content": {
+			"query": "\nCREATE TABLE dim_event\n(\n\tevent_key int NOT NULL,\n\tvenue_key int NOT NULL,\n\tcat_key int NOT NULL,\n\tdate_key int NOT NULL,\n\teventname varchar(200),\n\tstarttime DATETIME,\n\tupdate_date DATETIME,\n\trun_date VARCHAR(20),\n\tbatch_id int,\n\thash varchar(128)\n)WITH\n(\n    DISTRIBUTION = HASH (eventname),\n    CLUSTERED COLUMNSTORE INDEX\n)\nGO\n\nWITH cte_event AS\n(\n    SELECT\n    -1 AS event_key,\n\t-1 AS venue_key,\n\t-1 AS cat_key,\n\t-1 AS date_key,\n\t'unknown' AS eventname,\n\tNULL starttime,\n\t'1970-01-01' AS update_date,\n\t'1970-01-01' AS run_date,\n\t0 AS batch_id,\n\tNULL AS hash\n)\nINSERT INTO dim_event\nSELECT * FROM cte_event\n\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "dw_tickit",
+				"poolName": "dw_tickit"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

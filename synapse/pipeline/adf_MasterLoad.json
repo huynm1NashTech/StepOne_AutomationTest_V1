@@ -1,0 +1,290 @@
+{
+	"name": "adf_MasterLoad",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get-Batch-Id",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[sp_GetBatchId]",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "ds_pipeline_param",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Set-Batch-Id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get-Batch-Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "var_Batch_Id",
+					"value": {
+						"value": "@string(activity('Get-Batch-Id').output.firstRow.BatchId)",
+						"type": "Expression"
+					}
+				}
+			},
+			{
+				"name": "exc_Load_DimVenue",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Set-Batch-Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_DimVenue",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_run_date": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						},
+						"p_db_data_lake_path": {
+							"value": "@pipeline().parameters.p_db_data_lake_path",
+							"type": "Expression"
+						},
+						"p_batch_id": {
+							"value": "@variables('var_Batch_Id')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "exc_Load_DimCategory",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Set-Batch-Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_DimCategory",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_run_date": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						},
+						"p_db_data_lake_path": {
+							"value": "@pipeline().parameters.p_db_data_lake_path",
+							"type": "Expression"
+						},
+						"p_batch_id": {
+							"value": "@variables('var_Batch_Id')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "exc_Load_DimUser",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Set-Batch-Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_DimUser",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_run_date": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						},
+						"p_db_data_lake_path": {
+							"value": "@pipeline().parameters.p_db_data_lake_path",
+							"type": "Expression"
+						},
+						"p_batch_id": {
+							"value": "@variables('var_Batch_Id')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "exc_Load_DimEvent",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "exc_Load_DimVenue",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "exc_Load_DimCategory",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_DimEvent",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_run_date": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						},
+						"p_db_data_lake_path": {
+							"value": "@pipeline().parameters.p_db_data_lake_path",
+							"type": "Expression"
+						},
+						"p_batch_id": {
+							"value": "@variables('var_Batch_Id')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "exc_Load_FactSales",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "exc_Load_DimEvent",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "exc_Load_DimUser",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_SalesFact",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_run_date": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						},
+						"p_db_data_lake_path": {
+							"value": "@pipeline().parameters.p_db_data_lake_path",
+							"type": "Expression"
+						},
+						"p_batch_id": {
+							"value": "@variables('var_Batch_Id')",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "exc_Load_FactSales_Excel",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "exc_Load_FactSales",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_Load_SalesFact_Excel",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_run_date": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						},
+						"p_db_data_lake_path": {
+							"value": "@pipeline().parameters.p_db_data_lake_path",
+							"type": "Expression"
+						},
+						"p_batch_id": {
+							"value": "@variables('var_Batch_Id')",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"concurrency": 5,
+		"parameters": {
+			"p_run_date": {
+				"type": "string",
+				"defaultValue": "2021-10-03"
+			},
+			"p_db_data_lake_path": {
+				"type": "string",
+				"defaultValue": "/bronze/database/tickit/"
+			}
+		},
+		"variables": {
+			"var_Batch_Id": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "datamart/delta_lake"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-09-30T10:37:34Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

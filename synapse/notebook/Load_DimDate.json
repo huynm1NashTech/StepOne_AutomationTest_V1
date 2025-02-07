@@ -1,0 +1,271 @@
+{
+	"name": "Load_DimDate",
+	"properties": {
+		"folder": {
+			"name": "Delta_Load_Job"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "mainpool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/37b25916-1e2d-4883-bb99-00f8f55f2a88/resourceGroups/DataPractice/providers/Microsoft.Synapse/workspaces/synapse-ia137-dev/bigDataPools/mainpool",
+				"name": "mainpool",
+				"type": "Spark",
+				"endpoint": "https://synapse-ia137-dev.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/mainpool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.1",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"In data warehouse project, dim_date table plays role as a master data. It usually run once time"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"#Get parameters here\r\n",
+					"param_run_date = '2021-10-15'\r\n",
+					"param_db_data_lake_path='/bronze/database/tickit/'"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"source_count = 0\r\n",
+					"target_count = 0"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Get path to retrieve data\r\n",
+					"run_date_replace = param_run_date.replace(\"-\",\"/\")\r\n",
+					"db_data_lake_path = param_db_data_lake_path + \"date/\" + run_date_replace + \"/\"\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_parquet = spark.read.parquet(db_data_lake_path)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					}
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"DELETE FROM dim_date;"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_parquet.createOrReplaceTempView(\"stg_date\")"
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Remove duplicated data\r\n",
+					"sqlDimDate = spark.sql(\"SELECT *, ROW_NUMBER() OVER (PARTITION BY dateid ORDER BY dateid DESC) as row_num FROM stg_date\")\r\n",
+					"sqlDimDate1 = sqlDimDate.filter(\"row_num == 1\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"sqlDimDate1.createOrReplaceTempView(\"stg_date\")"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"INSERT INTO dim_date\r\n",
+					"(\r\n",
+					"    date_key,\r\n",
+					"\tcaldate,\r\n",
+					"\tday,\r\n",
+					"\tweek,\r\n",
+					"\tmonth,\r\n",
+					"\tqtr,\r\n",
+					"\tyear,\r\n",
+					"\tholiday\r\n",
+					")\r\n",
+					"SELECT  dateid,\r\n",
+					"\tcaldate,\r\n",
+					"\tday,\r\n",
+					"\tweek,\r\n",
+					"\tmonth,\r\n",
+					"\tqtr,\r\n",
+					"\tyear,\r\n",
+					"\tholiday FROM stg_date"
+				],
+				"execution_count": 10
+			}
+		]
+	}
+}

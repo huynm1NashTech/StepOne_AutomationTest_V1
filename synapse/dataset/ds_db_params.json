@@ -1,0 +1,12 @@
+{
+	"name": "ds_db_params",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_dbAudit",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	}
+}

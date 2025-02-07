@@ -1,0 +1,20 @@
+{
+	"name": "PowerBIModel",
+	"properties": {
+		"folder": {
+			"name": "PowerBI_Model"
+		},
+		"content": {
+			"query": "\nCREATE DATABASE dw_tickit_analytic;\nGO\n\nUSE dw_tickit_analytic;\n\nCREATE MASTER KEY ENCRYPTION BY PASSWORD ='nashtechgroup@123'\nGO\n\nCREATE DATABASE SCOPED CREDENTIAL NTCredential \nWITH\n IDENTITY = 'Managed Identity'\nGO    \n\n--rememeber to change to your storage account url\nCREATE EXTERNAL DATA SOURCE DeltaLakeStorage\nWITH \n( \n    location = 'https://storageia137dev.dfs.core.windows.net/lake', --this is container\n\tCREDENTIAL = NTCredential\n);\nGO\n\nCREATE EXTERNAL FILE FORMAT DeltaLakeFormat WITH (  FORMAT_TYPE = DELTA );\nGO\n\nCREATE EXTERNAL TABLE dim_category (\n\t[cat_key] int,\n\t[catid] int,\n\t[catgroup] varchar(100),\n\t[catname] varchar(100),\n\t[catdesc] varchar(500)\n\t)\n\tWITH (\n\tLOCATION = 'gold/category/',\n\tDATA_SOURCE = [DeltaLakeStorage],\n\tFILE_FORMAT = [DeltaLakeFormat]\n\t)\nGO\n\nCREATE EXTERNAL TABLE dim_date (\n\t[date_key] int,\n\t[caldate] date,\n\t[day] varchar(3),\n\t[week] int,\n\t[month] varchar(5),\n\t[qtr] varchar(5),\n\t[year] int,\n\t[holiday] smallint\n\t)\n\tWITH (\n\tLOCATION = 'gold/date/',\n\tDATA_SOURCE = [DeltaLakeStorage],\n\tFILE_FORMAT = [DeltaLakeFormat]\n\t)\nGO\n\nCREATE EXTERNAL TABLE dim_event (\n\t[event_key] int,\n\t[venue_key] int,\n\t[cat_key] int,\n\t[date_key] int,\n\t[eventname] varchar(200),\n\t[starttime] datetime2(7)\n\t)\n\tWITH (\n\tLOCATION = 'gold/event/',\n\tDATA_SOURCE = [DeltaLakeStorage],\n\tFILE_FORMAT = [DeltaLakeFormat]\n\t)\nGO\n\nCREATE EXTERNAL TABLE dim_user (\n\t[user_key] int,\n\t[username] varchar(30),\n\t[firstname] varchar(30),\n\t[lastname] varchar(30),\n\t[city] varchar(30),\n\t[state] varchar(2),\n\t[email] varchar(100),\n\t[phone] varchar(14),\n\t[likesports] smallint,\n\t[liketheatre] smallint,\n\t[likeconcerts] smallint,\n\t[likejazz] smallint,\n\t[likeclassical] smallint,\n\t[likeopera] smallint,\n\t[likerock] smallint,\n\t[likevegas] smallint,\n\t[likebroadway] smallint,\n\t[likemusicals] smallint,\n\t[update_date] datetime2(7),\n\t[Eff_Date] datetime2(7),\n\t[End_Date] datetime2(7),\n\t[Current_Flag] varchar(2)\n\t)\n\tWITH (\n\tLOCATION = 'gold/user/',\n\tDATA_SOURCE = [DeltaLakeStorage],\n\tFILE_FORMAT = [DeltaLakeFormat]\n\t)\nGO\n\nCREATE EXTERNAL TABLE dim_venue\n(\n    venue_key INT,\n    venuename VARCHAR(200),\n    venuecity VARCHAR(200),\n    venuestate VARCHAR(20),\n    venueseats INT\n)\nWITH\n(\n    LOCATION = 'gold/venue/',\n\tDATA_SOURCE = [DeltaLakeStorage],\n\tFILE_FORMAT = [DeltaLakeFormat]\n)\nGO\n\n\nCREATE EXTERNAL TABLE fact_sales\n(\n    seller_key int,\n\tbuyer_key int,\n\tevent_key int,\n\tdate_key int,\n\tqtysold int,\n\tpricepaid decimal(8, 2),\n\tcommission decimal(8, 2),\n\tsaletime DATETIME\n)WITH\n(\n    LOCATION = 'gold/sales/',\n\tDATA_SOURCE = [DeltaLakeStorage],\n\tFILE_FORMAT = [DeltaLakeFormat]\n)\nGO\n\n/*********************************************************************************************************/\n--Note: Sometimes, you can encounter error\n--Content of directory on path 'https://ntdatateam-synapse-dev.dfs.core.windows.net/lake/gold/category/_delta_log/*.json' cannot be listed.\n--Check link here for more detail https://docs.microsoft.com/en-us/azure/synapse-analytics/sql/develop-storage-files-storage-access-control?tabs=user-identity\n/*********************************************************************************************************/",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "dw_tickit_analytic",
+				"poolName": "Built-in"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

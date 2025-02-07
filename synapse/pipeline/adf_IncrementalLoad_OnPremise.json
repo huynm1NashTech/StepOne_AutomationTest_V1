@@ -1,0 +1,374 @@
+{
+	"name": "adf_IncrementalLoad_OnPremise",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get-last-watermark",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "@concat('SELECT TableName, ColumnName, WatermarkValue AS Old_WaterMark_Value FROM dbo.watermarktable WHERE TableName = ''', pipeline().parameters.p_tablename,'''')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "ds_pipeline_param",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Get-new-watermark",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderStoredProcedureName": "[dbo].[usp_Get_NewWaterMark]",
+						"storedProcedureParameters": {
+							"ColumnName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.p_columnname",
+									"type": "Expression"
+								}
+							},
+							"TableName": {
+								"type": "String",
+								"value": {
+									"value": "@pipeline().parameters.p_tablename",
+									"type": "Expression"
+								}
+							}
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "ds_db_src_onprem",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Copy-Delta",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "Get-last-watermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					},
+					{
+						"activity": "Get-new-watermark",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "SqlServerSource",
+						"sqlReaderQuery": {
+							"value": "SELECT * FROM @{pipeline().parameters.p_tablename} WHERE @{pipeline().parameters.p_columnname} > '@{activity('Get-last-watermark').output.firstRow.Old_WaterMark_Value}' and @{pipeline().parameters.p_columnname} <= '@{activity('Get-new-watermark').output.firstRow.New_WaterMark_Value}'",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_db_src_onprem",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_datalake_load",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "Update-New-WaterMark",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [
+					{
+						"activity": "Copy-Delta",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_write_watermark]",
+					"storedProcedureParameters": {
+						"TableName": {
+							"value": {
+								"value": "@pipeline().parameters.p_tablename",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"LastModifiedValue": {
+							"value": {
+								"value": "@activity('Get-new-watermark').output.firstRow.New_WaterMark_Value",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "ls_dbAudit",
+					"type": "LinkedServiceReference"
+				}
+			},
+			{
+				"name": "exp_WriteLog",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Copy-Delta",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_WriteLog",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_CopyActivity_queuingDuration_in_secs": {
+							"value": "@{activity('Copy-Delta').output.executionDetails[0].detailedDurations.queuingDuration}",
+							"type": "Expression"
+						},
+						"p_CopyActivity_Start_Time": {
+							"value": "@{activity('Copy-Delta').output.executionDetails[0].start} ",
+							"type": "Expression"
+						},
+						"p_CopyActivity_transferDuration_in_secs": {
+							"value": "@{activity('Copy-Delta').output.executionDetails[0].detailedDurations.transferDuration}",
+							"type": "Expression"
+						},
+						"p_DataFactory_Name": {
+							"value": "@{pipeline().DataFactory}",
+							"type": "Expression"
+						},
+						"p_DataRead": {
+							"value": "@{activity('Copy-Delta').output.rowsRead}",
+							"type": "Expression"
+						},
+						"p_Destination": {
+							"value": "@concat(pipeline().parameters.p_lake_dst_folder,pipeline().parameters.p_src_db,'/',pipeline().parameters.p_tablename,'/',formatDateTime(utcnow(),'yyyy'),'/',formatDateTime(utcnow(),'MM'),'/',formatDateTime(utcnow(),'dd'),'/',pipeline().parameters.p_tablename,formatDateTime(utcnow(),'HH'),formatDateTime(utcnow(),'mm'))",
+							"type": "Expression"
+						},
+						"p_Execution_Status": {
+							"value": "@{activity('Copy-Delta').output.executionDetails[0].status}",
+							"type": "Expression"
+						},
+						"p_ParamId": {
+							"value": "@pipeline().parameters.p_param_id",
+							"type": "Expression"
+						},
+						"p_Pipeline_Name": {
+							"value": "@{pipeline().Pipeline} ",
+							"type": "Expression"
+						},
+						"p_rowsCopied": {
+							"value": "@{activity('Copy-Delta').output.rowsCopied}",
+							"type": "Expression"
+						},
+						"p_RunID": {
+							"value": "@{pipeline().RunId}",
+							"type": "Expression"
+						},
+						"p_Source": {
+							"value": "@pipeline().parameters.p_tablename",
+							"type": "Expression"
+						},
+						"p_BatchId": {
+							"value": "@pipeline().parameters.p_batch_id",
+							"type": "Expression"
+						},
+						"p_RunDate": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "exp_WriteErrorLog",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Copy-Delta",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_WriteErrorLog",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_paramId": {
+							"value": "@pipeline().parameters.p_param_id",
+							"type": "Expression"
+						},
+						"p_BatchId": {
+							"value": "@pipeline().parameters.p_batch_id",
+							"type": "Expression"
+						},
+						"p_RunDate": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						},
+						"p_DataFactory_Name": {
+							"value": "@{pipeline().DataFactory}",
+							"type": "Expression"
+						},
+						"p_Pipeline_Name": {
+							"value": "@{pipeline().Pipeline}",
+							"type": "Expression"
+						},
+						"p_RunId": {
+							"value": "@{pipeline().RunId}",
+							"type": "Expression"
+						},
+						"p_Source": {
+							"value": "@{pipeline().parameters.p_tablename}",
+							"type": "Expression"
+						},
+						"p_Destination": {
+							"value": "@concat(pipeline().parameters.p_lake_dst_folder,pipeline().parameters.p_src_db,'/',pipeline().parameters.p_tablename,'/',formatDateTime(utcnow(),'yyyy'),'/',formatDateTime(utcnow(),'MM'),'/',formatDateTime(utcnow(),'dd'),'/',pipeline().parameters.p_tablename,formatDateTime(utcnow(),'HH'),formatDateTime(utcnow(),'mm'))",
+							"type": "Expression"
+						},
+						"p_Execution_Status": {
+							"value": "@{activity('Copy-Delta').output.executionDetails[0].status}",
+							"type": "Expression"
+						},
+						"p_ErrorDescription": {
+							"value": "@{activity('Copy-Delta').error.message}",
+							"type": "Expression"
+						},
+						"p_ErrorCode": {
+							"value": "@{activity('Copy-Delta').error.errorCode}",
+							"type": "Expression"
+						},
+						"p_ErrorLoggedTime": {
+							"value": "@utcnow() ",
+							"type": "Expression"
+						},
+						"p_FailureType": {
+							"value": "@concat(activity('Copy-Delta').error.message,'failureType:',activity('Copy-Delta').error.failureType)",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"p_tablename": {
+				"type": "string",
+				"defaultValue": "[dbo].[sales]"
+			},
+			"p_columnname": {
+				"type": "string",
+				"defaultValue": "saletime"
+			},
+			"p_src_db": {
+				"type": "string",
+				"defaultValue": "tickit"
+			},
+			"p_lake_dst_folder": {
+				"type": "string",
+				"defaultValue": "lake/bronze/database/"
+			},
+			"p_batch_id": {
+				"type": "int",
+				"defaultValue": 1
+			},
+			"p_run_date": {
+				"type": "string",
+				"defaultValue": "2021-09-14"
+			},
+			"p_param_id": {
+				"type": "int",
+				"defaultValue": 1
+			}
+		},
+		"folder": {
+			"name": "data_warehouse/DBSource_On_Primise"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-09-30T10:38:40Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

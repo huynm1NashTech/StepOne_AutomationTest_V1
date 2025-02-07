@@ -1,0 +1,184 @@
+{
+	"name": "adf_WriteLog",
+	"properties": {
+		"activities": [
+			{
+				"name": "Write-Log",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_UpdateLogTable]",
+					"storedProcedureParameters": {
+						"CopyActivity_End_Time": {
+							"value": {
+								"value": "@{utcnow()} ",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"CopyActivity_queuingDuration_in_secs": {
+							"value": {
+								"value": "@pipeline().parameters.p_CopyActivity_queuingDuration_in_secs\n",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"CopyActivity_Start_Time": {
+							"value": {
+								"value": "@pipeline().parameters.p_CopyActivity_Start_Time",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"CopyActivity_transferDuration_in_secs": {
+							"value": {
+								"value": "@pipeline().parameters.p_CopyActivity_transferDuration_in_secs",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"DataFactory_Name": {
+							"value": {
+								"value": "@pipeline().parameters.p_DataFactory_Name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"DataRead": {
+							"value": {
+								"value": "@pipeline().parameters.p_DataRead",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"Destination": {
+							"value": {
+								"value": "@pipeline().parameters.p_Destination",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Execution_Status": {
+							"value": {
+								"value": "@pipeline().parameters.p_Execution_Status",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"ParamId": {
+							"value": {
+								"value": "@pipeline().parameters.p_ParamId",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"Pipeline_Name": {
+							"value": {
+								"value": "@pipeline().parameters.p_Pipeline_Name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"rowsCopied": {
+							"value": {
+								"value": "@pipeline().parameters.p_rowsCopied",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"RunID": {
+							"value": {
+								"value": "@pipeline().parameters.p_RunID",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"Source": {
+							"value": {
+								"value": "@pipeline().parameters.p_Source",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"BatchId": {
+							"value": {
+								"value": "@pipeline().parameters.p_BatchId",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"RunDate": {
+							"value": {
+								"value": "@pipeline().parameters.p_RunDate",
+								"type": "Expression"
+							},
+							"type": "Datetime"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "ls_dbAudit",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"p_CopyActivity_queuingDuration_in_secs": {
+				"type": "string"
+			},
+			"p_CopyActivity_Start_Time": {
+				"type": "string"
+			},
+			"p_CopyActivity_transferDuration_in_secs": {
+				"type": "string"
+			},
+			"p_DataFactory_Name": {
+				"type": "string"
+			},
+			"p_DataRead": {
+				"type": "int"
+			},
+			"p_Destination": {
+				"type": "string"
+			},
+			"p_Execution_Status": {
+				"type": "string"
+			},
+			"p_ParamId": {
+				"type": "int"
+			},
+			"p_Pipeline_Name": {
+				"type": "string"
+			},
+			"p_rowsCopied": {
+				"type": "string"
+			},
+			"p_RunID": {
+				"type": "string"
+			},
+			"p_Source": {
+				"type": "string"
+			},
+			"p_BatchId": {
+				"type": "int"
+			},
+			"p_RunDate": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "data_warehouse/Generic"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-09-30T10:38:05Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

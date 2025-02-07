@@ -1,0 +1,20 @@
+{
+	"name": "dim_user",
+	"properties": {
+		"folder": {
+			"name": "Dedicated_SQL"
+		},
+		"content": {
+			"query": "CREATE TABLE dim_user\n(\n\tuser_key INT NOT NULL,\n\tusername char(8),\n\tfirstname varchar(30),\n\tlastname varchar(30),\n\tcity varchar(30),\n\tstate char(2),\n\temail varchar(100),\n\tphone char(14),\n\tlikesports smallint,\n\tliketheatre smallint,\n\tlikeconcerts smallint,\n\tlikejazz smallint,\n\tlikeclassical smallint,\n\tlikeopera smallint,\n\tlikerock smallint,\n\tlikevegas smallint,\n\tlikebroadway smallint,\n\tlikemusicals smallint,\n\tupdate_date DATETIME,\n\trun_date VARCHAR(20),\n\tbatch_id int,\n\thash varchar(128),\n\tEff_Date DATETIME,\n\tEnd_Date DATETIME,\n\tCurrent_Flag varchar(5)\n)\nWITH\n(\n    DISTRIBUTION = HASH (username),\n    CLUSTERED COLUMNSTORE INDEX\n)\nGO\n\n\nWITH cte_User AS\n(\n    SELECT\n\t-1 AS user_key,\n\t'unknown' AS username,\n\t'unknown' AS firstname,\n\t'unknown' AS lastname,\n\t'unknown' AS city,\n\tNULL AS state,\n\t'unknown' AS email,\n\t'unknown' AS phone,\n\t0 AS likesports,\n\t0 AS liketheatre,\n\t0 AS likeconcerts,\n\t0 AS likejazz,\n\t0 AS likeclassical,\n\t0 AS likeopera,\n\t0 AS likerock,\n\t0 AS likevegas,\n\t0 AS likebroadway,\n\t0 AS likemusicals,\n\t'1970-01-01' AS update_date,\n\t'1970-01-01' AS run_date,\n\t0 AS batch_id,\n\tNULL AS hash,\n\t'1970-01-01' AS Eff_Date,\n\t'1970-01-01' AS End_Date,\n\tNULL Current_Flag\n)\nINSERT INTO dim_user\nSELECT * FROM cte_User\n\n\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "dw_tickit",
+				"poolName": "dw_tickit"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

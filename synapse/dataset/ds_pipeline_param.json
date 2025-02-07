@@ -1,0 +1,30 @@
+{
+	"name": "ds_pipeline_param",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_dbAudit",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Table_Name",
+				"type": "nvarchar"
+			},
+			{
+				"name": "TABLE_CATALOG",
+				"type": "nvarchar"
+			},
+			{
+				"name": "process_type",
+				"type": "nvarchar"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "pipeline_parameter"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

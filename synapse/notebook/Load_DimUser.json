@@ -1,0 +1,548 @@
+{
+	"name": "Load_DimUser",
+	"properties": {
+		"folder": {
+			"name": "Delta_Load_Job"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "mainpool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/37b25916-1e2d-4883-bb99-00f8f55f2a88/resourceGroups/DataPractice/providers/Microsoft.Synapse/workspaces/synapse-ia137-dev/bigDataPools/mainpool",
+				"name": "mainpool",
+				"type": "Spark",
+				"endpoint": "https://synapse-ia137-dev.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/mainpool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.1",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"#Get parameters here\r\n",
+					"param_run_date = '2021-10-15'\r\n",
+					"param_batch_id = 1\r\n",
+					"param_db_data_lake_path='/bronze/database/tickit/'\r\n",
+					"#param_file_data_lake_path = \"/bronze/flatfile/\"\r\n",
+					""
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "python"
+					}
+				},
+				"source": [
+					"%%pyspark\r\n",
+					"source_count = 0\r\n",
+					"target_count = 0\r\n",
+					""
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Get path to retrieve data\r\n",
+					"run_date_replace = param_run_date.replace(\"-\",\"/\")\r\n",
+					"db_data_lake_path = param_db_data_lake_path + \"users/\" + run_date_replace + \"/\"\r\n",
+					"#file_data_lake_path = param_file_data_lake_path + \"users/\"\r\n",
+					""
+				],
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_parquet = spark.read.parquet(db_data_lake_path)\r\n",
+					""
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"In this case, we combine with json file to demonstrate SCD2.\r\n",
+					"\r\n",
+					"Here csv file is assumed that it is put in blob storage \"commondatasolutions\" and container = \"rawdata\" in folder=\"user\"\r\n",
+					""
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Load json file\r\n",
+					"from pyspark.sql.types import StructType, StructField, StringType, IntegerType, DoubleType, ArrayType\r\n",
+					"\r\n",
+					"\r\n",
+					"sensor_schema = StructType(fields=[\r\n",
+					"    StructField('user_name', StringType(), False),\r\n",
+					"    StructField('first_name', StringType(), True),\r\n",
+					"    StructField('last_name', StringType(), True),\r\n",
+					"    StructField('email', StringType(), True),\r\n",
+					"    StructField('phone', StringType(), True),\r\n",
+					"    StructField(\r\n",
+					"        'address', \r\n",
+					"            StructType([\r\n",
+					"                StructField('street', StringType(), True),\r\n",
+					"                StructField('city', StringType(), True),\r\n",
+					"                StructField('state', StringType(), True),\r\n",
+					"                StructField('zip', StringType(), True),\r\n",
+					"            ])\r\n",
+					"        \r\n",
+					"    )\r\n",
+					"])\r\n",
+					"\r\n",
+					"file_data_lake_path = \"wasbs://rawdata@commondatasolutions.blob.core.windows.net/user/user.json\"\r\n",
+					"df_user_json = spark.read.option(\"multiline\", \"true\") \\\r\n",
+					"      .json(file_data_lake_path)\r\n",
+					"df_user_json = df_user_json.select(\"email\",\"first_name\", \"last_name\",  \"phone\",\"user_name\", \"address.*\")"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Add some columns to dataframe\r\n",
+					"from pyspark.sql.functions import lit\r\n",
+					"df_user_json = df_user_json.withColumn(\"likesports\", lit(False))\r\n",
+					"df_user_json = df_user_json.withColumn(\"liketheatre\", lit(False))\r\n",
+					"df_user_json = df_user_json.withColumn(\"likeconcerts\", lit(False))\r\n",
+					"df_user_json = df_user_json.withColumn(\"likejazz\", lit(False))\r\n",
+					"df_user_json = df_user_json.withColumn(\"likeclassical\", lit(False))\r\n",
+					"df_user_json = df_user_json.withColumn(\"likeopera\", lit(False))\r\n",
+					"df_user_json = df_user_json.withColumn(\"likerock\", lit(False))\r\n",
+					"df_user_json = df_user_json.withColumn(\"likevegas\", lit(False))\r\n",
+					"df_user_json = df_user_json.withColumn(\"likebroadway\", lit(False))\r\n",
+					"df_user_json = df_user_json.withColumn(\"likemusicals\", lit(False))\r\n",
+					"df_user_json.printSchema()"
+				],
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Union all 2 dataframe together\r\n",
+					"columns_parquet = [\"username\", \"firstname\",   \"lastname\", \"city\", \"state\", \"email\",\"phone\",\"likesports\",\"liketheatre\",\"likeconcerts\", \"likejazz\", \"likeclassical\", \"likeopera\",\"likerock\", \"likevegas\",\"likebroadway\",\"likemusicals\"]\r\n",
+					"columns_json =    [\"user_name\", \"first_name\",\"last_name\" ,\"city\",\"state\",\"email\", \"phone\",\"likesports\",\"liketheatre\",\"likeconcerts\", \"likejazz\", \"likeclassical\", \"likeopera\",\"likerock\", \"likevegas\",\"likebroadway\",\"likemusicals\" ]\r\n",
+					"df_user = df_parquet[columns_parquet].unionAll(df_user_json[columns_json])\r\n",
+					""
+				],
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"source_count = df_user.count()"
+				],
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Create hash column\r\n",
+					"from pyspark.sql.functions import sha2, concat_ws\r\n",
+					"df_user = df_user.withColumn(\"hash_value\", sha2(concat_ws(\"||\", *df_user.columns), 256))"
+				],
+				"execution_count": 11
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Add column run_date and batch job\r\n",
+					"df_user = df_user.withColumn('batch_id', lit(param_batch_id))\r\n",
+					"df_user = df_user.withColumn('run_date', lit(param_run_date))"
+				],
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#remove duplicate\r\n",
+					"#Remove duplicated data\r\n",
+					"df_user.createOrReplaceTempView(\"stg_user\")\r\n",
+					"sqlUser = spark.sql(\"SELECT *, ROW_NUMBER() OVER (PARTITION BY hash_value ORDER BY username DESC) as row_num FROM stg_user\")\r\n",
+					"sqlUser1 = sqlUser.filter(\"row_num == 1\")"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"target_count = sqlUser1.count()"
+				],
+				"execution_count": 14
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Convert dataframe to table to use in SQL\r\n",
+					"sqlUser1.createOrReplaceTempView(\"stg_user\")"
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"In this case, we apply SCD2 for dim_user. Delta can support merge statement to do that"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"--Using SCD2\r\n",
+					"MERGE INTO dim_user AS target\r\n",
+					"USING\r\n",
+					"(\r\n",
+					"    \r\n",
+					"    /*Get list of records match*/\r\n",
+					"    SELECT \r\n",
+					"        stg.username AS mergeKey,\r\n",
+					"        0 as rownum,\r\n",
+					"        0 AS maxid,\r\n",
+					"        stg.username,\r\n",
+					"        stg.firstname,\r\n",
+					"        stg.lastname,\r\n",
+					"        stg.city,\r\n",
+					"        stg.state,\r\n",
+					"        stg.email,\r\n",
+					"        stg.phone,\r\n",
+					"        stg.likesports,\r\n",
+					"        stg.liketheatre,\r\n",
+					"        stg.likeconcerts,\r\n",
+					"        stg.likejazz,\r\n",
+					"        stg.likeclassical,\r\n",
+					"        stg.likeopera,\r\n",
+					"        stg.likerock,\r\n",
+					"        stg.likevegas,\r\n",
+					"        stg.likebroadway,\r\n",
+					"        stg.likemusicals,\r\n",
+					"        stg.hash_value,\r\n",
+					"        stg.batch_id,\r\n",
+					"        stg.run_date\r\n",
+					"    FROM stg_user stg\r\n",
+					"    INNER JOIN dim_user dm ON stg.username = dm.username AND dm.Current_Flag = 'Y'\r\n",
+					"    UNION ALL\r\n",
+					"    SELECT\r\n",
+					"        NULL AS mergeKey,\r\n",
+					"        row_number() OVER (ORDER BY stg.username  /*PARTITION BY CASE WHEN dm.username IS NULL THEN 1 ELSE 0 END ORDER BY stg.username*/) as rownum,\r\n",
+					"        (SELECT CASE WHEN MAX(user_key)<0 THEN 0 \r\n",
+					"                        ELSE MAX(user_key) END FROM dim_user) AS maxid,\r\n",
+					"        stg.username,\r\n",
+					"        stg.firstname,\r\n",
+					"        stg.lastname,\r\n",
+					"        stg.city,\r\n",
+					"        stg.state,\r\n",
+					"        stg.email,\r\n",
+					"        stg.phone,\r\n",
+					"        stg.likesports,\r\n",
+					"        stg.liketheatre,\r\n",
+					"        stg.likeconcerts,\r\n",
+					"        stg.likejazz,\r\n",
+					"        stg.likeclassical,\r\n",
+					"        stg.likeopera,\r\n",
+					"        stg.likerock,\r\n",
+					"        stg.likevegas,\r\n",
+					"        stg.likebroadway,\r\n",
+					"        stg.likemusicals,\r\n",
+					"        stg.hash_value,\r\n",
+					"        stg.batch_id,\r\n",
+					"        stg.run_date\r\n",
+					"    FROM stg_user stg\r\n",
+					"    LEFT JOIN dim_user dm ON stg.username = dm.username\r\n",
+					"    WHERE dm.username IS NULL OR (dm.Current_Flag = 'Y' AND dm.hash <> stg.hash_value)\r\n",
+					"    \r\n",
+					") AS source ON (source.mergeKey = target.username)\r\n",
+					"WHEN MATCHED AND (target.Current_Flag ='Y' AND target.hash <> source.hash_value) THEN UPDATE\r\n",
+					"SET target.End_Date = current_date(),\r\n",
+					"    target.update_date = current_date(),\r\n",
+					"    target.run_date = source.run_date,\r\n",
+					"    target.batch_id = source.batch_id,\r\n",
+					"    target.Current_Flag = 'N'\r\n",
+					"WHEN NOT MATCHED THEN INSERT\r\n",
+					"(\r\n",
+					"    user_key,\r\n",
+					"    username,\r\n",
+					"    firstname,\r\n",
+					"    lastname,\r\n",
+					"    city,\r\n",
+					"    state,\r\n",
+					"    email,\r\n",
+					"    phone,\r\n",
+					"    likesports,\r\n",
+					"    liketheatre,\r\n",
+					"    likeconcerts,\r\n",
+					"    likejazz,\r\n",
+					"    likeclassical,\r\n",
+					"    likeopera,\r\n",
+					"    likerock,\r\n",
+					"    likevegas,\r\n",
+					"    likebroadway,\r\n",
+					"    likemusicals,\r\n",
+					"    update_date,\r\n",
+					"    run_date,\r\n",
+					"    batch_id,\r\n",
+					"    hash,\r\n",
+					"    Eff_Date,\r\n",
+					"    End_Date,\r\n",
+					"    Current_Flag\r\n",
+					")\r\n",
+					"VALUES\r\n",
+					"(\r\n",
+					"    source.rownum + source.maxid,\r\n",
+					"    source.username,\r\n",
+					"    source.firstname,\r\n",
+					"    source.lastname,\r\n",
+					"    source.city,\r\n",
+					"    source.state,\r\n",
+					"    source.email,\r\n",
+					"    source.phone,\r\n",
+					"    source.likesports,\r\n",
+					"    source.liketheatre,\r\n",
+					"    source.likeconcerts,\r\n",
+					"    source.likejazz,\r\n",
+					"    source.likeclassical,\r\n",
+					"    source.likeopera,\r\n",
+					"    source.likerock,\r\n",
+					"    source.likevegas,\r\n",
+					"    source.likebroadway,\r\n",
+					"    source.likemusicals,\r\n",
+					"    current_date(),\r\n",
+					"    source.run_date,\r\n",
+					"    source.batch_id,\r\n",
+					"    source.hash_value,\r\n",
+					"    current_date(),\r\n",
+					"    '2199-12-31',\r\n",
+					"    'Y'\r\n",
+					")\r\n",
+					"\r\n",
+					""
+				],
+				"execution_count": 28
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"output = str(source_count) + \",\" + str(target_count)\r\n",
+					"mssparkutils.notebook.exit(output)"
+				],
+				"execution_count": 11
+			}
+		]
+	}
+}

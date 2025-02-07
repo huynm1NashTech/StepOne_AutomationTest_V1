@@ -1,0 +1,12 @@
+{
+	"name": "ds_db_src_oncloud",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_dbsource_oncloud",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	}
+}

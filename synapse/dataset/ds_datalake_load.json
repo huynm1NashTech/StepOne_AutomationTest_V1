@@ -1,0 +1,30 @@
+{
+	"name": "ds_datalake_load",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_datalake",
+			"type": "LinkedServiceReference",
+			"parameters": {
+				"storage_base_url": "https://storageia137dev.dfs.core.windows.net/"
+			}
+		},
+		"annotations": [],
+		"type": "Parquet",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": {
+					"value": "@{pipeline().parameters.p_tablename}/@{formatDateTime(utcnow(),'yyyy')}/@{formatDateTime(utcnow(),'MM')}/@{formatDateTime(utcnow(),'dd')}/@{pipeline().parameters.p_tablename}@{formatDateTime(utcnow(),'HH')}@{formatDateTime(utcnow(),'mm')}.parquet",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@concat(pipeline().parameters.p_lake_dst_folder,pipeline().parameters.p_src_db)",
+					"type": "Expression"
+				}
+			},
+			"compressionCodec": "snappy"
+		},
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

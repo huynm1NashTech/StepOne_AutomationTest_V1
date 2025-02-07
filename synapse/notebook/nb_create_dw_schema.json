@@ -1,0 +1,538 @@
+{
+	"name": "nb_create_dw_schema",
+	"properties": {
+		"folder": {
+			"name": "DW_DDL"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "mainpool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "8e9f5e2d-e39c-453e-b3a8-d9bd0f1707d5"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/37b25916-1e2d-4883-bb99-00f8f55f2a88/resourceGroups/DataPractice/providers/Microsoft.Synapse/workspaces/synapse-ia137-dev/bigDataPools/mainpool",
+				"name": "mainpool",
+				"type": "Spark",
+				"endpoint": "https://synapse-ia137-dev.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/mainpool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.1",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"'''\r\n",
+					"%%sql\r\n",
+					"--DROP TABLE dw_tickit.dim_date\r\n",
+					"--DROP TABLE dw_tickit.dim_category\r\n",
+					"--DROP TABLE dw_tickit.dim_venue;\r\n",
+					"--DROP TABLE dw_tickit.dim_event;\r\n",
+					"--DROP TABLE dw_tickit.dim_user;\r\n",
+					"--DROP TABLE dw_tickit.fact_sales;\r\n",
+					"--DROP DATABASE dw_tickit;\r\n",
+					"'''\r\n",
+					""
+				],
+				"execution_count": 18
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"'''\r\n",
+					"%%sql\r\n",
+					"DELETE FROM dw_tickit.dim_category WHERE cat_key<>-1;\r\n",
+					"DELETE FROM dw_tickit.dim_venue WHERE venue_key <>-1;\r\n",
+					"DELETE FROM dw_tickit.dim_event WHERE event_key <>-1;\r\n",
+					"DELETE FROM dw_tickit.dim_user WHERE user_key <>-1;\r\n",
+					"DELETE FROM dw_tickit.fact_sales;\r\n",
+					"'''"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"jupyter": {
+						"outputs_hidden": true
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"CREATE DATABASE IF NOT EXISTS dw_tickit;"
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"CREATE TABLE IF NOT EXISTS dw_tickit.dim_date\r\n",
+					"(\r\n",
+					"    date_key int NOT NULL,\r\n",
+					"\tcaldate date NOT NULL,\r\n",
+					"\tday char(3) NOT NULL,\r\n",
+					"\tweek int NOT NULL,\r\n",
+					"\tmonth char(5) NOT NULL,\r\n",
+					"\tqtr char(5) NOT NULL,\r\n",
+					"\tyear int NOT NULL,\r\n",
+					"\tholiday SMALLINT\r\n",
+					")\r\n",
+					"USING delta\r\n",
+					"LOCATION '/gold/date/'"
+				],
+				"execution_count": 20
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"CREATE TABLE IF NOT EXISTS dw_tickit.dim_category\r\n",
+					"(\r\n",
+					"    cat_key INT NOT NULL,\r\n",
+					"\tcatid int NOT NULL,\r\n",
+					"\tcatgroup varchar(10),\r\n",
+					"\tcatname varchar(10),\r\n",
+					"\tcatdesc varchar(50),\r\n",
+					"\tupdate_date timestamp,\r\n",
+					"\trun_date date,\r\n",
+					"\tbatch_id int,\r\n",
+					"\thash varchar(128)\r\n",
+					")\r\n",
+					"USING delta\r\n",
+					"LOCATION '/gold/category/'"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"WITH cte_Category AS\r\n",
+					"(\r\n",
+					"    SELECT\r\n",
+					"    -1 AS cat_key,\r\n",
+					"\t-1 AS catid,\r\n",
+					"\t'unknown' AS catgroup,\r\n",
+					"\t'unknown' AS catname,\r\n",
+					"\t'unknown' AS catdesc,\r\n",
+					"\t'1970-01-01' AS update_date,\r\n",
+					"\t'1970-01-01' AS run_date,\r\n",
+					"\t0 AS batch_id,\r\n",
+					"\tNULL AS hash\r\n",
+					")\r\n",
+					"MERGE INTO dw_tickit.dim_category dst\r\n",
+					"USING cte_Category scr ON (dst.cat_key = scr.cat_key)\r\n",
+					"WHEN MATCHED THEN UPDATE SET *\r\n",
+					"WHEN NOT MATCHED THEN INSERT *"
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"CREATE TABLE IF NOT EXISTS dw_tickit.dim_venue\r\n",
+					"(\r\n",
+					"    venue_key INT,\r\n",
+					"    venuename VARCHAR(100),\r\n",
+					"    venuecity VARCHAR(30),\r\n",
+					"    venuestate VARCHAR(2),\r\n",
+					"    venueseats INT,\r\n",
+					"    update_date timestamp,\r\n",
+					"\trun_date date,\r\n",
+					"\tbatch_id int,\r\n",
+					"\thash varchar(128)\r\n",
+					")USING delta\r\n",
+					"LOCATION '/gold/venue/'"
+				],
+				"execution_count": 23
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"WITH cte_Venue AS\r\n",
+					"(\r\n",
+					"    SELECT\r\n",
+					"    -1 AS venue_key,\r\n",
+					"    'unknown' AS venuename,\r\n",
+					"    'unknown' AS venuecity,\r\n",
+					"    NULL AS venuestate,\r\n",
+					"    0 AS venueseats,\r\n",
+					"\t'1970-01-01' AS update_date,\r\n",
+					"\t'1970-01-01' AS run_date,\r\n",
+					"\t0 AS batch_id,\r\n",
+					"\tNULL AS hash\r\n",
+					")\r\n",
+					"MERGE INTO dw_tickit.dim_venue dst\r\n",
+					"USING cte_Venue scr ON (dst.venue_key = scr.venue_key)\r\n",
+					"WHEN MATCHED THEN UPDATE SET *\r\n",
+					"WHEN NOT MATCHED THEN INSERT *"
+				],
+				"execution_count": 24
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"CREATE TABLE IF NOT EXISTS dw_tickit.dim_event\r\n",
+					"(\r\n",
+					"\tevent_key int NOT NULL,\r\n",
+					"\tvenue_key int NOT NULL,\r\n",
+					"\tcat_key int NOT NULL,\r\n",
+					"\tdate_key int NOT NULL,\r\n",
+					"\teventname varchar(200),\r\n",
+					"\tstarttime timestamp,\r\n",
+					"\tupdate_date timestamp,\r\n",
+					"\trun_date date,\r\n",
+					"\tbatch_id int,\r\n",
+					"\thash varchar(128)\r\n",
+					")USING delta\r\n",
+					"LOCATION '/gold/event/'\r\n",
+					""
+				],
+				"execution_count": 25
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"WITH cte_event AS\r\n",
+					"(\r\n",
+					"    SELECT\r\n",
+					"    -1 AS event_key,\r\n",
+					"\t-1 AS venue_key,\r\n",
+					"\t-1 AS cat_key,\r\n",
+					"\t-1 AS date_key,\r\n",
+					"\t'unknown' AS eventname,\r\n",
+					"\tNULL starttime,\r\n",
+					"\t'1970-01-01' AS update_date,\r\n",
+					"\t'1970-01-01' AS run_date,\r\n",
+					"\t0 AS batch_id,\r\n",
+					"\tNULL AS hash\r\n",
+					")\r\n",
+					"MERGE INTO dw_tickit.dim_event dst\r\n",
+					"USING cte_event scr ON (dst.event_key = scr.event_key)\r\n",
+					"WHEN MATCHED THEN UPDATE SET *\r\n",
+					"WHEN NOT MATCHED THEN INSERT *"
+				],
+				"execution_count": 26
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"CREATE TABLE IF NOT EXISTS dw_tickit.dim_user\r\n",
+					"(\r\n",
+					"\tuser_key INT NOT NULL,\r\n",
+					"\tusername char(8),\r\n",
+					"\tfirstname varchar(30),\r\n",
+					"\tlastname varchar(30),\r\n",
+					"\tcity varchar(30),\r\n",
+					"\tstate char(2),\r\n",
+					"\temail varchar(100),\r\n",
+					"\tphone char(14),\r\n",
+					"\tlikesports smallint,\r\n",
+					"\tliketheatre smallint,\r\n",
+					"\tlikeconcerts smallint,\r\n",
+					"\tlikejazz smallint,\r\n",
+					"\tlikeclassical smallint,\r\n",
+					"\tlikeopera smallint,\r\n",
+					"\tlikerock smallint,\r\n",
+					"\tlikevegas smallint,\r\n",
+					"\tlikebroadway smallint,\r\n",
+					"\tlikemusicals smallint,\r\n",
+					"\tupdate_date timestamp,\r\n",
+					"\trun_date date,\r\n",
+					"\tbatch_id int,\r\n",
+					"\thash varchar(128),\r\n",
+					"\tEff_Date timestamp,\r\n",
+					"\tEnd_Date timestamp,\r\n",
+					"\tCurrent_Flag varchar(5)\r\n",
+					")\r\n",
+					"USING delta\r\n",
+					"LOCATION '/gold/user/'"
+				],
+				"execution_count": 27
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"WITH cte_User AS\r\n",
+					"(\r\n",
+					"    SELECT\r\n",
+					"\t-1 AS user_key,\r\n",
+					"\t'unknown' AS username,\r\n",
+					"\t'unknown' AS firstname,\r\n",
+					"\t'unknown' AS lastname,\r\n",
+					"\t'unknown' AS city,\r\n",
+					"\tNULL AS state,\r\n",
+					"\t'unknown' AS email,\r\n",
+					"\t'unknown' AS phone,\r\n",
+					"\t0 AS likesports,\r\n",
+					"\t0 AS liketheatre,\r\n",
+					"\t0 AS likeconcerts,\r\n",
+					"\t0 AS likejazz,\r\n",
+					"\t0 AS likeclassical,\r\n",
+					"\t0 AS likeopera,\r\n",
+					"\t0 AS likerock,\r\n",
+					"\t0 AS likevegas,\r\n",
+					"\t0 AS likebroadway,\r\n",
+					"\t0 AS likemusicals,\r\n",
+					"\t'1970-01-01' AS update_date,\r\n",
+					"\t'1970-01-01' AS run_date,\r\n",
+					"\t0 AS batch_id,\r\n",
+					"\tNULL AS hash,\r\n",
+					"\t'1970-01-01' AS Eff_Date,\r\n",
+					"\t'1970-01-01' AS End_Date,\r\n",
+					"\tNULL Current_Flag\r\n",
+					")\r\n",
+					"MERGE INTO dw_tickit.dim_user dst\r\n",
+					"USING cte_User scr ON (dst.user_key = scr.user_key)\r\n",
+					"WHEN MATCHED THEN UPDATE SET *\r\n",
+					"WHEN NOT MATCHED THEN INSERT *"
+				],
+				"execution_count": 28
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"CREATE TABLE IF NOT EXISTS dw_tickit.fact_sales\r\n",
+					"(\r\n",
+					"    seller_key int NOT NULL,\r\n",
+					"\tbuyer_key int NOT NULL,\r\n",
+					"\tevent_key int NOT NULL,\r\n",
+					"\tdate_key int NOT NULL,\r\n",
+					"\tqtysold int NOT NULL,\r\n",
+					"\tpricepaid decimal(8, 2),\r\n",
+					"\tcommission decimal(8, 2),\r\n",
+					"\tsaletime timestamp,\r\n",
+					"    update_date timestamp,\r\n",
+					"\trun_date date,\r\n",
+					"\tbatch_id int,\r\n",
+					"\thash varchar(128)\r\n",
+					")USING delta\r\n",
+					"LOCATION '/gold/sales/'"
+				],
+				"execution_count": 29
+			}
+		]
+	}
+}

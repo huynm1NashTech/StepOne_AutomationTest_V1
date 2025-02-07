@@ -1,0 +1,20 @@
+{
+	"name": "dim_venue",
+	"properties": {
+		"folder": {
+			"name": "Dedicated_SQL"
+		},
+		"content": {
+			"query": "CREATE TABLE dim_venue\n(\n    venue_key INT,\n    venuename VARCHAR(200),\n    venuecity VARCHAR(200),\n    venuestate VARCHAR(20),\n    venueseats INT,\n    update_date datetime,\n    run_date varchar(20),\n    batch_id int,\n    hash varchar(256)\n)\nWITH\n(\n    DISTRIBUTION = HASH (venuename),\n    CLUSTERED COLUMNSTORE INDEX\n)\nGO\n\nWITH cte_Venue AS\n(\n    SELECT\n    -1 AS venue_key,\n    'unknown' AS venuename,\n    'unknown' AS venuecity,\n    'unknown' AS venuestate,\n    0 AS venueseats,\n\t'1970-01-01' AS update_date,\n\t'1970-01-01' AS run_date,\n\t0 AS batch_id,\n\tNULL AS hash\n)\nINSERT INTO dim_venue\nSELECT * FROM cte_Venue\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "dw_tickit",
+				"poolName": "dw_tickit"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

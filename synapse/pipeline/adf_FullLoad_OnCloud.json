@@ -1,0 +1,250 @@
+{
+	"name": "adf_FullLoad_OnCloud",
+	"properties": {
+		"activities": [
+			{
+				"name": "Copy-Table",
+				"description": "test test test trigger pipeline",
+				"type": "Copy",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "USE @{pipeline().parameters.p_src_db}\nSELECT * FROM @{pipeline().parameters.p_tablename}",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"sink": {
+						"type": "ParquetSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "ParquetWriteSettings"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "ds_db_src_oncloud",
+						"type": "DatasetReference"
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "ds_datalake_load",
+						"type": "DatasetReference"
+					}
+				]
+			},
+			{
+				"name": "exp_WriteLog",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Copy-Table",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_WriteLog",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_CopyActivity_queuingDuration_in_secs": {
+							"value": "@{activity('Copy-Table').output.executionDetails[0].detailedDurations.queuingDuration}",
+							"type": "Expression"
+						},
+						"p_CopyActivity_Start_Time": {
+							"value": "@{activity('Copy-Table').output.executionDetails[0].start} ",
+							"type": "Expression"
+						},
+						"p_CopyActivity_transferDuration_in_secs": {
+							"value": "@{activity('Copy-Table').output.executionDetails[0].detailedDurations.transferDuration}",
+							"type": "Expression"
+						},
+						"p_DataFactory_Name": {
+							"value": "@{pipeline().DataFactory}",
+							"type": "Expression"
+						},
+						"p_DataRead": {
+							"value": "@{activity('Copy-Table').output.rowsRead}",
+							"type": "Expression"
+						},
+						"p_Destination": {
+							"value": "@concat(pipeline().parameters.p_lake_dst_folder,pipeline().parameters.p_src_db,'/',pipeline().parameters.p_tablename,'/',formatDateTime(utcnow(),'yyyy'),'/',formatDateTime(utcnow(),'MM'),'/',formatDateTime(utcnow(),'dd'),'/',pipeline().parameters.p_tablename,formatDateTime(utcnow(),'HH'),formatDateTime(utcnow(),'mm'))",
+							"type": "Expression"
+						},
+						"p_Execution_Status": {
+							"value": "@{activity('Copy-Table').output.executionDetails[0].status}",
+							"type": "Expression"
+						},
+						"p_ParamId": {
+							"value": "@pipeline().parameters.p_param_id",
+							"type": "Expression"
+						},
+						"p_Pipeline_Name": {
+							"value": "@{pipeline().Pipeline} ",
+							"type": "Expression"
+						},
+						"p_rowsCopied": {
+							"value": "@{activity('Copy-Table').output.rowsCopied}",
+							"type": "Expression"
+						},
+						"p_RunID": {
+							"value": "@{pipeline().RunId}",
+							"type": "Expression"
+						},
+						"p_Source": {
+							"value": "@pipeline().parameters.p_tablename",
+							"type": "Expression"
+						},
+						"p_BatchId": {
+							"value": "@pipeline().parameters.p_batch_id",
+							"type": "Expression"
+						},
+						"p_RunDate": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "exp_WriteErrorLog",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Copy-Table",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_WriteErrorLog",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_paramId": {
+							"value": "@pipeline().parameters.p_param_id",
+							"type": "Expression"
+						},
+						"p_BatchId": {
+							"value": "@pipeline().parameters.p_batch_id",
+							"type": "Expression"
+						},
+						"p_RunDate": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						},
+						"p_DataFactory_Name": {
+							"value": "@{pipeline().DataFactory}",
+							"type": "Expression"
+						},
+						"p_Pipeline_Name": {
+							"value": "@{pipeline().Pipeline}",
+							"type": "Expression"
+						},
+						"p_RunId": {
+							"value": "@{pipeline().RunId}",
+							"type": "Expression"
+						},
+						"p_Source": {
+							"value": "@{pipeline().parameters.p_tablename}",
+							"type": "Expression"
+						},
+						"p_Destination": {
+							"value": "@concat(pipeline().parameters.p_lake_dst_folder,pipeline().parameters.p_src_db,'/',pipeline().parameters.p_tablename,'/',formatDateTime(utcnow(),'yyyy'),'/',formatDateTime(utcnow(),'MM'),'/',formatDateTime(utcnow(),'dd'),'/',pipeline().parameters.p_tablename,formatDateTime(utcnow(),'HH'),formatDateTime(utcnow(),'mm'))",
+							"type": "Expression"
+						},
+						"p_Execution_Status": {
+							"value": "@{activity('Copy-Table').output.executionDetails[0].status}",
+							"type": "Expression"
+						},
+						"p_ErrorDescription": {
+							"value": "@{activity('Copy-Table').error.message}",
+							"type": "Expression"
+						},
+						"p_ErrorCode": {
+							"value": "@{activity('Copy-Table').error.errorCode}",
+							"type": "Expression"
+						},
+						"p_ErrorLoggedTime": {
+							"value": "@utcnow() ",
+							"type": "Expression"
+						},
+						"p_FailureType": {
+							"value": "@concat(activity('Copy-Table').error.message,'failureType:',activity('Copy-Table').error.failureType)",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"p_tablename": {
+				"type": "string",
+				"defaultValue": "[dbo].[sales]"
+			},
+			"p_columnname": {
+				"type": "string",
+				"defaultValue": "saletime"
+			},
+			"p_src_db": {
+				"type": "string",
+				"defaultValue": "tickit"
+			},
+			"p_lake_dst_folder": {
+				"type": "string",
+				"defaultValue": "lake/bronze/database/"
+			},
+			"p_batch_id": {
+				"type": "int",
+				"defaultValue": 100
+			},
+			"p_run_date": {
+				"type": "string",
+				"defaultValue": "2021-09-14"
+			},
+			"p_param_id": {
+				"type": "int",
+				"defaultValue": 1
+			}
+		},
+		"folder": {
+			"name": "data_warehouse/DBSource_On_Cloud"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-09-30T10:38:38Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

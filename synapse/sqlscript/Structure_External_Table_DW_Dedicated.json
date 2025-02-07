@@ -1,0 +1,20 @@
+{
+	"name": "Structure_External_Table_DW_Dedicated",
+	"properties": {
+		"folder": {
+			"name": "Dedicated_SQL"
+		},
+		"content": {
+			"query": "DROP DATABASE\nCREATE MASTER KEY ENCRYPTION BY PASSWORD ='studygroup@123'\n\nCREATE DATABASE SCOPED CREDENTIAL NTCredential \nWITH\n IDENTITY = 'Managed Identity'\nGO    \n\nCREATE EXTERNAL DATA SOURCE DeltaLakeStorage\nWITH \n( \n   \n    location = 'abfss://nashtechfsstorage@nashtechdtlstorage.dfs.core.windows.net', \n    CREDENTIAL = NTCredential\n);\n\nCREATE EXTERNAL FILE FORMAT DeltaLakeFormat WITH (  FORMAT_TYPE = PARQUET );\n\nDROP EXTERNAL DATA SOURCE [DeltaLakeStorage]\ndrop external TABLE stg_Category;\n\nCREATE EXTERNAL TABLE stg_Category (\n    catid int NOT NULL,\n\tcatgroup varchar(200),\n\tcatname varchar(200),\n\tcatdesc varchar(50),\n    hash_value varchar(128),\n\trow_num INT,\n    batch_id INT,\n    run_date varchar(30)\n) WITH (\n        LOCATION = '/gold/staging/category', --> the root folder containing the Delta Lake files\n        data_source = DeltaLakeStorage,\n        FILE_FORMAT = DeltaLakeFormat\n);\n\n\nCREATE EXTERNAL TABLE stg_Venue (\n    venuename VARCHAR(200),\n    venuecity VARCHAR(200),\n    venuestate VARCHAR(10),\n    venueseats INT,\n    hash_value VARCHAR(256),\n    row_num INT,\n    batch_id INT,\n    run_date VARCHAR(20)\n) WITH (\n        LOCATION = '/gold/staging/venue', --> the root folder containing the Delta Lake files\n        data_source = DeltaLakeStorage,\n        FILE_FORMAT = DeltaLakeFormat\n);\n\nSELECT * FROM stg_Venue\n\n\nCREATE EXTERNAL TABLE stg_Event (\n    eventid INT,\n    venue_key INT,\n    cat_key INT,\n    dateid INT,\n    eventname VARCHAR(200),\n    starttime DATETIME,\n    hash_value VARCHAR(256),\n    row_num INT,\n    batch_id INT,\n    run_date VARCHAR(20)\n) WITH (\n        LOCATION = '/gold/staging/event', --> the root folder containing the Delta Lake files\n        data_source = DeltaLakeStorage,\n        FILE_FORMAT = DeltaLakeFormat\n);\n\nSELECT * FROM stg_Event\nDROP EXTERNAL TABLE stg_User\nCREATE EXTERNAL TABLE stg_User (\n    username VARCHAR(100),\n    firstname VARCHAR(50),\n    lastname VARCHAR(50),\n    city VARCHAR(100),\n    state VARCHAR(10),\n    email VARCHAR(100),\n    phone VARCHAR(30),\n    likesports SMALLINT,\n    liketheatre SMALLINT,\n    likeconcerts SMALLINT,\n    likejazz SMALLINT,\n    likeclassical SMALLINT,\n    likeopera SMALLINT,\n    likerock SMALLINT,\n    likevegas SMALLINT,\n    likebroadway SMALLINT,\n    likemusicals SMALLINT,\n     hash_value VARCHAR(256),\n     batch_id INT,\n    run_date VARCHAR(20)\n) WITH (\n        LOCATION = '/gold/staging/user', --> the root folder containing the Delta Lake files\n        data_source = DeltaLakeStorage,\n        FILE_FORMAT = DeltaLakeFormat\n);\n\n------------------------------\n\nCREATE EXTERNAL TABLE stg_Sales (\n    seller_key INT,\n    buyer_key INT,\n    eventid INT,\n    dateid INT,\n    qtysold INT,\n    pricepaid decimal(8,2),\n    commission decimal(8,2),\n    saletime DATETIME,\n    hash_value VARCHAR(256),\n    row_num INT,\n    batch_id INT,\n    run_date VARCHAR(20) \n) WITH (\n        LOCATION = '/gold/staging/sales', --> the root folder containing the Delta Lake files\n        data_source = DeltaLakeStorage,\n        FILE_FORMAT = DeltaLakeFormat\n);\n\nselect * from stg_Sales\n\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "dw_tickit",
+				"poolName": "dw_tickit"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

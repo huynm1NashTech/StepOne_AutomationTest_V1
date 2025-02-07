@@ -1,0 +1,20 @@
+{
+	"name": "usp_Insert_Dim_User",
+	"properties": {
+		"folder": {
+			"name": "Dedicated_SQL"
+		},
+		"content": {
+			"query": "CREATE PROC usp_Insert_Dim_User\nAS\nBEGIN\nMERGE INTO dim_user AS target\nUSING\n(\n    \n    /*Get list of records match*/\n    SELECT \n        stg.username AS mergeKey,\n        0 as rownum,\n        0 AS maxid,\n        stg.username,\n        stg.firstname,\n        stg.lastname,\n        stg.city,\n        stg.state,\n        stg.email,\n        stg.phone,\n        stg.likesports,\n        stg.liketheatre,\n        stg.likeconcerts,\n        stg.likejazz,\n        stg.likeclassical,\n        stg.likeopera,\n        stg.likerock,\n        stg.likevegas,\n        stg.likebroadway,\n        stg.likemusicals,\n        stg.hash_value,\n        stg.batch_id,\n        stg.run_date\n    FROM stg_user stg\n    INNER JOIN dim_user dm ON stg.username = dm.username AND dm.Current_Flag = 'Y'\n    UNION ALL\n    SELECT\n        NULL AS mergeKey,\n        row_number() OVER (ORDER BY stg.username  /*PARTITION BY CASE WHEN dm.username IS NULL THEN 1 ELSE 0 END ORDER BY stg.username*/) as rownum,\n        (SELECT CASE WHEN MAX(user_key)<0 THEN 0 \n                        ELSE MAX(user_key) END FROM dim_user) AS maxid,\n        stg.username,\n        stg.firstname,\n        stg.lastname,\n        stg.city,\n        stg.state,\n        stg.email,\n        stg.phone,\n        stg.likesports,\n        stg.liketheatre,\n        stg.likeconcerts,\n        stg.likejazz,\n        stg.likeclassical,\n        stg.likeopera,\n        stg.likerock,\n        stg.likevegas,\n        stg.likebroadway,\n        stg.likemusicals,\n        stg.hash_value,\n        stg.batch_id,\n        stg.run_date\n    FROM stg_user stg\n    LEFT JOIN dim_user dm ON stg.username = dm.username\n    WHERE dm.username IS NULL OR (dm.Current_Flag = 'Y' AND dm.hash <> stg.hash_value)\n    \n) AS source ON (source.mergeKey = target.username)\nWHEN MATCHED AND (target.Current_Flag ='Y' AND target.hash <> source.hash_value) THEN UPDATE\nSET target.End_Date = GETDATE(),\n    target.update_date = GETDATE(),\n    target.run_date = source.run_date,\n    target.batch_id = source.batch_id,\n    target.Current_Flag = 'N'\nWHEN NOT MATCHED THEN INSERT\n(\n    user_key,\n    username,\n    firstname,\n    lastname,\n    city,\n    state,\n    email,\n    phone,\n    likesports,\n    liketheatre,\n    likeconcerts,\n    likejazz,\n    likeclassical,\n    likeopera,\n    likerock,\n    likevegas,\n    likebroadway,\n    likemusicals,\n    update_date,\n    run_date,\n    batch_id,\n    hash,\n    Eff_Date,\n    End_Date,\n    Current_Flag\n)\nVALUES\n(\n    source.rownum + source.maxid,\n    source.username,\n    source.firstname,\n    source.lastname,\n    source.city,\n    source.state,\n    source.email,\n    source.phone,\n    source.likesports,\n    source.liketheatre,\n    source.likeconcerts,\n    source.likejazz,\n    source.likeclassical,\n    source.likeopera,\n    source.likerock,\n    source.likevegas,\n    source.likebroadway,\n    source.likemusicals,\n    GETDATE(),\n    source.run_date,\n    source.batch_id,\n    source.hash_value,\n    GETDATE(),\n    '2199-12-31',\n    'Y'\n);\nEND\n\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "dw_tickit",
+				"poolName": "dw_tickit"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

@@ -1,0 +1,57 @@
+{
+	"name": "adf_Load_DimDate",
+	"properties": {
+		"activities": [
+			{
+				"name": "Load_DimDate",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "Load_DimDate",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"param_run_date": {
+							"value": {
+								"value": "@pipeline().parameters.p_run_date",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"param_db_data_lake_path": {
+							"value": {
+								"value": "@pipeline().parameters.p_db_data_lake_path",
+								"type": "Expression"
+							},
+							"type": "string"
+						}
+					},
+					"snapshot": true
+				}
+			}
+		],
+		"parameters": {
+			"p_run_date": {
+				"type": "string",
+				"defaultValue": "2021-10-03"
+			},
+			"p_db_data_lake_path": {
+				"type": "string",
+				"defaultValue": "/bronze/database/tickit/"
+			}
+		},
+		"folder": {
+			"name": "datamart/delta_lake"
+		},
+		"annotations": []
+	}
+}

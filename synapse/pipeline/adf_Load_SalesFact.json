@@ -1,0 +1,219 @@
+{
+	"name": "adf_Load_SalesFact",
+	"properties": {
+		"activities": [
+			{
+				"name": "Load_FactSales",
+				"type": "SynapseNotebook",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"notebook": {
+						"referenceName": "Load_FactSales",
+						"type": "NotebookReference"
+					},
+					"parameters": {
+						"param_run_date": {
+							"value": {
+								"value": "@pipeline().parameters.p_run_date",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"param_db_data_lake_path": {
+							"value": {
+								"value": "@pipeline().parameters.p_db_data_lake_path",
+								"type": "Expression"
+							},
+							"type": "string"
+						},
+						"param_batch_id": {
+							"value": {
+								"value": "@pipeline().parameters.p_batch_id",
+								"type": "Expression"
+							},
+							"type": "int"
+						}
+					},
+					"snapshot": true
+				}
+			},
+			{
+				"name": "exp_WriteLog",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Load_FactSales",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_WriteLog",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_CopyActivity_queuingDuration_in_secs": {
+							"value": "@{activity('Load_FactSales').output.durationInQueue.integrationRuntimeQueue}",
+							"type": "Expression"
+						},
+						"p_CopyActivity_Start_Time": {
+							"value": "@utcnow()",
+							"type": "Expression"
+						},
+						"p_CopyActivity_transferDuration_in_secs": {
+							"value": "@{activity('Load_FactSales').output.executionDuration}",
+							"type": "Expression"
+						},
+						"p_DataFactory_Name": {
+							"value": "@{pipeline().DataFactory}",
+							"type": "Expression"
+						},
+						"p_DataRead": {
+							"value": "@split(activity('Load_FactSales').output.status.Output.result.exitValue,',')[0]",
+							"type": "Expression"
+						},
+						"p_Destination": "fact_sales",
+						"p_Execution_Status": {
+							"value": "@{activity('Load_FactSales').output.status.Output.result.runStatus}",
+							"type": "Expression"
+						},
+						"p_ParamId": {
+							"value": "1",
+							"type": "Expression"
+						},
+						"p_Pipeline_Name": {
+							"value": "@{pipeline().Pipeline} ",
+							"type": "Expression"
+						},
+						"p_rowsCopied": {
+							"value": "@split(activity('Load_FactSales').output.status.Output.result.exitValue,',')[1]",
+							"type": "Expression"
+						},
+						"p_RunID": {
+							"value": "@{pipeline().RunId}",
+							"type": "Expression"
+						},
+						"p_Source": {
+							"value": "@pipeline().parameters.p_db_data_lake_path",
+							"type": "Expression"
+						},
+						"p_BatchId": {
+							"value": "@pipeline().parameters.p_batch_id",
+							"type": "Expression"
+						},
+						"p_RunDate": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "exp_WriteErrorLog",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "Load_FactSales",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "adf_WriteErrorLog",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"p_paramId": {
+							"value": "1",
+							"type": "Expression"
+						},
+						"p_BatchId": {
+							"value": "@pipeline().parameters.p_batch_id",
+							"type": "Expression"
+						},
+						"p_RunDate": {
+							"value": "@pipeline().parameters.p_run_date",
+							"type": "Expression"
+						},
+						"p_DataFactory_Name": {
+							"value": "@{pipeline().DataFactory}",
+							"type": "Expression"
+						},
+						"p_Pipeline_Name": {
+							"value": "@{pipeline().Pipeline}",
+							"type": "Expression"
+						},
+						"p_RunId": {
+							"value": "@{pipeline().RunId}",
+							"type": "Expression"
+						},
+						"p_Source": {
+							"value": "@pipeline().parameters.p_db_data_lake_path",
+							"type": "Expression"
+						},
+						"p_Destination": {
+							"value": "fact_sales",
+							"type": "Expression"
+						},
+						"p_Execution_Status": {
+							"value": "@{activity('Load_FactSales').output.status.Output.result.runStatus}",
+							"type": "Expression"
+						},
+						"p_ErrorDescription": {
+							"value": "@{activity('Load_FactSales').output.status.Output.result.message}",
+							"type": "Expression"
+						},
+						"p_ErrorCode": {
+							"value": "@{activity('Load_FactSales').output.status.Output.result.errors.ename}",
+							"type": "Expression"
+						},
+						"p_ErrorLoggedTime": {
+							"value": "@utcnow() ",
+							"type": "Expression"
+						},
+						"p_FailureType": {
+							"value": "@{activity('Load_FactSales').output.status.Output.result.errors.evalue}",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"p_run_date": {
+				"type": "string",
+				"defaultValue": "2021-10-03"
+			},
+			"p_db_data_lake_path": {
+				"type": "string",
+				"defaultValue": "/bronze/database/tickit/"
+			},
+			"p_batch_id": {
+				"type": "string",
+				"defaultValue": "1"
+			}
+		},
+		"folder": {
+			"name": "datamart/delta_lake"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-09-30T10:37:32Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

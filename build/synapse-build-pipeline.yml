@@ -1,0 +1,23 @@
+trigger:
+- workspace_publish
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- script: |
+    git checkout workspace_publish
+  displayName: Switch Synapse Artifact branch
+
+- task: CopyFiles@2
+  displayName: 'Copy Files to: Build Synapse ARM'
+  inputs:
+    SourceFolder: datasolution-synapse-dev
+    Contents: '*.json'
+    TargetFolder: $(Build.ArtifactsStagingDirectory)/SynapseARM
+
+- task: PublishPipelineArtifact@1
+  displayName: Publish Synapse Artifact
+  inputs:
+    path: $(Build.ArtifactsStagingDirectory)/SynapseARM
+    artifactName: SynapseARM

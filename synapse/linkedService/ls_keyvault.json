@@ -1,0 +1,17 @@
+{
+	"name": "ls_keyvault",
+	"properties": {
+		"parameters": {
+			"vault_base_url": {
+				"type": "string",
+				"defaultValue": "https://vault-ia137-dev.vault.azure.net/"
+			}
+		},
+		"annotations": [],
+		"type": "AzureKeyVault",
+		"typeProperties": {
+			"baseUrl": "@{linkedService().vault_base_url}"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/linkedservices"
+}

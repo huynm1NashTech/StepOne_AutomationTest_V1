@@ -1,0 +1,13 @@
+{
+	"name": "ds_allowable_running",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_dbAudit",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

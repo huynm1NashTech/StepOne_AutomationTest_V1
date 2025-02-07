@@ -1,0 +1,332 @@
+{
+	"name": "Load_FactSales_Dedicated_SQL",
+	"properties": {
+		"folder": {
+			"name": "Dedicated_Load_Job"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "mainpool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/37b25916-1e2d-4883-bb99-00f8f55f2a88/resourceGroups/DataPractice/providers/Microsoft.Synapse/workspaces/synapse-ia137-dev/bigDataPools/mainpool",
+				"name": "mainpool",
+				"type": "Spark",
+				"endpoint": "https://synapse-ia137-dev.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/mainpool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.1",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"run_date = '2021-09-26'\r\n",
+					"batch_id = 1\r\n",
+					"source_count = 0\r\n",
+					"target_count = 0\r\n",
+					"db_data_lake_path='/bronze/database/tickit/sales/2021/09/27/'\r\n",
+					"target_file = '/gold/staging/sales/sales.parquet'"
+				],
+				"attachments": null,
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "python"
+					}
+				},
+				"source": [
+					"%%pyspark\r\n",
+					"#Read data file parquet\r\n",
+					"#df = spark.read.load(db_data_lake_path, format='parquet')\r\n",
+					"#display(df.limit(10))\r\n",
+					"df_parquet = spark.read.parquet(db_data_lake_path)"
+				],
+				"attachments": null,
+				"execution_count": 31
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_parquet.createOrReplaceTempView(\"stg_sales\")"
+				],
+				"attachments": null,
+				"execution_count": 32
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"SELECT * FROM dim_user LIMIT 1;"
+				],
+				"attachments": null,
+				"execution_count": 33
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_sales = spark.sql(\"SELECT \\\r\n",
+					"                       CASE WHEN u.user_key IS NULL THEN -1 ELSE u.user_key END as seller_key, CASE WHEN u1.user_key IS NULL THEN -1 ELSE u1.user_key END as buyer_key, \\\r\n",
+					"                       s.eventid, \\\r\n",
+					"                       s.dateid, \\\r\n",
+					"                       s.qtysold, \\\r\n",
+					"                       s.pricepaid,  s.commission,  s.saletime \\\r\n",
+					"              FROM stg_sales s \\\r\n",
+					"              LEFT JOIN dim_user u ON s.sellername = u.username \\\r\n",
+					"              LEFT JOIN dim_user u1 ON s.buyername = u.username \\\r\n",
+					"              \")\r\n",
+					"#df_sales.show(20)"
+				],
+				"attachments": null,
+				"execution_count": 34
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Create hash column\r\n",
+					"from pyspark.sql.functions import sha2, concat_ws\r\n",
+					"df_sales = df_sales.withColumn(\"hash_value\", sha2(concat_ws(\"||\", *df_sales.columns[4:]), 256))"
+				],
+				"attachments": null,
+				"execution_count": 35
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Remove duplicated data\r\n",
+					"df_sales.createOrReplaceTempView(\"stg_sales\")\r\n",
+					"df_sales = spark.sql(\"SELECT *, ROW_NUMBER() OVER (PARTITION BY hash_value ORDER BY seller_key DESC) as row_num FROM stg_sales\")\r\n",
+					"df_sales = df_sales.filter(\"row_num == 1\")"
+				],
+				"attachments": null,
+				"execution_count": 36
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Add more 2 columns batch id and run_date\r\n",
+					"from pyspark.sql.functions import lit\r\n",
+					"df_sales = df_sales.withColumn('batch_id', lit(batch_id))\r\n",
+					"df_sales = df_sales.withColumn('run_date', lit(run_date))"
+				],
+				"attachments": null,
+				"execution_count": 37
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_sales.write.mode(\"overwrite\").parquet(target_file)"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"'''\r\n",
+					"#Convert dataframe to table to use in SQL\r\n",
+					"#target_count = df_sales.count()\r\n",
+					"df_sales.createOrReplaceTempView(\"stg_sales\")\r\n",
+					"'''"
+				],
+				"attachments": null,
+				"execution_count": 38
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"'''\r\n",
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"MERGE INTO fact_sales AS trg\r\n",
+					"USING\r\n",
+					"(\r\n",
+					"    SELECT \r\n",
+					"        stg.seller_key,\r\n",
+					"        stg.buyer_key,\r\n",
+					"        stg.eventid,\r\n",
+					"        stg.dateid,\r\n",
+					"        stg.qtysold,\r\n",
+					"        stg.pricepaid,\r\n",
+					"        stg.commission,\r\n",
+					"        stg.saletime,\r\n",
+					"        stg.run_date,\r\n",
+					"        stg.batch_id,\r\n",
+					"        stg.hash_value\r\n",
+					"    FROM stg_sales stg\r\n",
+					") AS scr ON scr.seller_key = trg.seller_key AND scr.buyer_key = trg.buyer_key AND scr.eventid = trg.event_key AND scr.dateid = trg.date_key\r\n",
+					"/*WHEN MATCHED THEN\r\n",
+					"        UPDATE SET\r\n",
+					"                    venue_key = scr.venue_key,\r\n",
+					"                    cat_key = scr.cat_key,\r\n",
+					"                    date_key = scr.dateid,\r\n",
+					"                    eventname = scr.eventname,\r\n",
+					"                    starttime = scr.starttime,\r\n",
+					"                    run_date = scr.run_date,\r\n",
+					"                    batch_id = scr.batch_id,\r\n",
+					"                    hash = scr.hash_value,\r\n",
+					"                    update_date = current_date()*/\r\n",
+					"WHEN NOT MATCHED THEN \r\n",
+					"        INSERT(seller_key, buyer_key,event_key,date_key,qtysold,pricepaid,commission,saletime,update_date,run_date,batch_id,hash)\r\n",
+					"        VALUES(scr.seller_key, scr.buyer_key,scr.eventid,scr.dateid,scr.qtysold,scr.pricepaid,scr.commission,scr.saletime,current_date(),scr.run_date,scr.batch_id,scr.hash_value)  \r\n",
+					"'''        "
+				],
+				"attachments": null,
+				"execution_count": 39
+			}
+		]
+	}
+}

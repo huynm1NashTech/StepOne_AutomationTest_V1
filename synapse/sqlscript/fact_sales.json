@@ -1,0 +1,20 @@
+{
+	"name": "fact_sales",
+	"properties": {
+		"folder": {
+			"name": "Dedicated_SQL"
+		},
+		"content": {
+			"query": "CREATE TABLE fact_sales\n(\n    seller_key int NOT NULL,\n\tbuyer_key int NOT NULL,\n\tevent_key int NOT NULL,\n\tdate_key int NOT NULL,\n\tqtysold int NOT NULL,\n\tpricepaid decimal(8, 2),\n\tcommission decimal(8, 2),\n\tsaletime DATETIME,\n    update_date DATETIME,\n\trun_date VARCHAR(20),\n\tbatch_id int,\n\thash varchar(128)\n)WITH\n(\n    DISTRIBUTION = HASH (seller_key),\n    CLUSTERED COLUMNSTORE INDEX\n)\nGO\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "dw_tickit",
+				"poolName": "dw_tickit"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

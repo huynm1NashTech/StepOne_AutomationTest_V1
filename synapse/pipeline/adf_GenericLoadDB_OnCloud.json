@@ -1,0 +1,286 @@
+{
+	"name": "adf_GenericLoadDB_OnCloud",
+	"properties": {
+		"activities": [
+			{
+				"name": "Get-Tables",
+				"description": "Get entities to load",
+				"type": "Lookup",
+				"dependsOn": [
+					{
+						"activity": "Set-Batch-Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "ds_job_config",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "Iterate-Each-Table",
+				"description": "Loop entities to load data",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Get-Tables",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Get-Tables').output.value",
+						"type": "Expression"
+					},
+					"activities": [
+						{
+							"name": "Check-Allowable-Running",
+							"description": "This component calls store to check if entity is allowed running or not. \nIs running if multiple run or single run but failed in that day",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "7.00:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderStoredProcedureName": "[dbo].[sp_Check_Is_Running]",
+									"storedProcedureParameters": {
+										"RunDate": {
+											"type": "String",
+											"value": {
+												"value": "@pipeline().parameters.p_run_date",
+												"type": "Expression"
+											}
+										},
+										"TableName": {
+											"type": "String",
+											"value": {
+												"value": "@{item().src_table} ",
+												"type": "Expression"
+											}
+										}
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "ds_allowable_running",
+									"type": "DatasetReference"
+								}
+							}
+						},
+						{
+							"name": "Load-Type",
+							"description": "Switch what type of load. Currently we have 2 types of loading: full load and incremental load",
+							"type": "Switch",
+							"dependsOn": [
+								{
+									"activity": "Check-Allowable-Running",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"userProperties": [],
+							"typeProperties": {
+								"on": {
+									"value": "@activity('Check-Allowable-Running').output.firstRow.Running_Type",
+									"type": "Expression"
+								},
+								"cases": [
+									{
+										"value": "incremental_load",
+										"activities": [
+											{
+												"name": "exp_Load_Incremental",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "adf_IncrementalLoad_OnCloud",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"p_tablename": {
+															"value": "@{item().src_table}",
+															"type": "Expression"
+														},
+														"p_columnname": {
+															"value": "@{item().water_mark_column}",
+															"type": "Expression"
+														},
+														"p_src_db": {
+															"value": "@{item().src_db}",
+															"type": "Expression"
+														},
+														"p_lake_dst_folder": {
+															"value": "@{item().lake_dst_folder}",
+															"type": "Expression"
+														},
+														"p_batch_id": {
+															"value": "@variables('var_Batch_Id')",
+															"type": "Expression"
+														},
+														"p_run_date": {
+															"value": "@pipeline().parameters.p_run_date",
+															"type": "Expression"
+														},
+														"p_param_id": {
+															"value": "@{item().paramId}",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									},
+									{
+										"value": "full_load",
+										"activities": [
+											{
+												"name": "exp_Load_Full",
+												"type": "ExecutePipeline",
+												"dependsOn": [],
+												"userProperties": [],
+												"typeProperties": {
+													"pipeline": {
+														"referenceName": "adf_FullLoad_OnCloud",
+														"type": "PipelineReference"
+													},
+													"waitOnCompletion": true,
+													"parameters": {
+														"p_tablename": {
+															"value": "@{item().src_table}",
+															"type": "Expression"
+														},
+														"p_src_db": {
+															"value": "@{item().src_db}",
+															"type": "Expression"
+														},
+														"p_lake_dst_folder": {
+															"value": "@{item().lake_dst_folder}",
+															"type": "Expression"
+														},
+														"p_batch_id": {
+															"value": "@variables('var_Batch_Id')",
+															"type": "Expression"
+														},
+														"p_run_date": {
+															"value": "@pipeline().parameters.p_run_date",
+															"type": "Expression"
+														},
+														"p_param_id": {
+															"value": "@{item().paramId}",
+															"type": "Expression"
+														}
+													}
+												}
+											}
+										]
+									}
+								]
+							}
+						}
+					]
+				}
+			},
+			{
+				"name": "Get-Batch-Id",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "7.00:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderStoredProcedureName": "[dbo].[sp_GetBatchId]",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "ds_pipeline_param",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "Set-Batch-Id",
+				"type": "SetVariable",
+				"dependsOn": [
+					{
+						"activity": "Get-Batch-Id",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"variableName": "var_Batch_Id",
+					"value": {
+						"value": "@string(activity('Get-Batch-Id').output.firstRow.BatchId)",
+						"type": "Expression"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"p_run_date": {
+				"type": "string",
+				"defaultValue": "2021-10-03"
+			}
+		},
+		"variables": {
+			"var_Batch_Id": {
+				"type": "String"
+			},
+			"var_Allow_Running": {
+				"type": "String"
+			},
+			"var_Incremental_Load": {
+				"type": "String"
+			}
+		},
+		"folder": {
+			"name": "data_warehouse/DBSource_On_Cloud"
+		},
+		"annotations": [],
+		"lastPublishTime": "2021-09-30T10:39:10Z"
+	},
+	"type": "Microsoft.Synapse/workspaces/pipelines"
+}

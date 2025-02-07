@@ -1,0 +1,314 @@
+{
+	"name": "Load_FactSales_Excel",
+	"properties": {
+		"folder": {
+			"name": "Delta_Load_Job"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "mainpool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2",
+				"spark.autotune.trackingId": "949e5490-9b16-4e60-8fe2-95e90339b085"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/37b25916-1e2d-4883-bb99-00f8f55f2a88/resourceGroups/DataPractice/providers/Microsoft.Synapse/workspaces/synapse-ia137-dev/bigDataPools/mainpool",
+				"name": "mainpool",
+				"type": "Spark",
+				"endpoint": "https://synapse-ia137-dev.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/mainpool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.1",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"#Get parameters here\n",
+					"param_run_date = '2022-11-10'\n",
+					"param_batch_id = 1\n",
+					"param_db_data_lake_path='/bronze/database/tickit/'"
+				],
+				"execution_count": 19
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"### *Read file parquet from azure storage*"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# path = '/mnt/datalake/bronze/database/tickit/sales/2022/11/01'\n",
+					"# df_par = spark.read.format('parquet').options(header=True,inferSchema=True).load(path)\n",
+					"# df_par.head(10)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## Process Excel File"
+				]
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"### *Using pandas and openpyxl library. This can run with cluster minimumStandard 8GB. Please get the SAS ket of commondatasolutions before running.*"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"import pandas as pd\n",
+					"sas_token = 'sp=r&st=2022-11-03T06:46:40Z&se=2024-12-31T14:46:40Z&spr=https&sv=2021-06-08&sr=c&sig=teaUU09XKmE3CJIHpDxJuyMMPoA9A293FACeTnVvezc%3D'\n",
+					"salesDF=pd.read_excel('https://commondatasolutions.dfs.core.windows.net/rawdata/sales/SalesEvent.xlsx?'+sas_token)"
+				],
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"### *Consider using spark with com.crealytics.spark.excel library to read but require driver cluster strong. (Need cluster 14GB RAM)*"
+				]
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"source_count = 0\n",
+					"target_count = 0"
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from pyspark.sql.functions import *\n",
+					"from pyspark.sql.types import *\n",
+					"\n",
+					"salesSchema = StructType([\n",
+					"    StructField(\"sellername\", StringType(), True),\n",
+					"    StructField(\"buyername\", StringType(), True),\n",
+					"    StructField(\"qtysold\", IntegerType(), True),\n",
+					"    StructField(\"pricepaid\", IntegerType(), True),\n",
+					"    StructField(\"commission\", FloatType(), True),\n",
+					"    StructField(\"saletime\", TimestampType(), False),\n",
+					"    StructField(\"eventname\", StringType(), True),\n",
+					"    StructField(\"eventdate\", DateType(), True),\n",
+					"    StructField(\"venuename\", StringType(), True),\n",
+					"    StructField(\"categoryname\", StringType(), True),\n",
+					"    StructField(\"starttime\", TimestampType(), False)\n",
+					"])\n",
+					"sales_df = spark.createDataFrame(salesDF, schema=salesSchema)"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"sales_df.createOrReplaceTempView(\"stg_sales\")\n",
+					""
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"### Get key from master data"
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\n",
+					"-- SELECT count(1) from dim_date"
+				],
+				"execution_count": 15
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\n",
+					"use dw_tickit;\n",
+					"SELECT count(1)\n",
+					"  FROM stg_sales s  \n",
+					"  LEFT JOIN dim_user ul ON ul.username = s.sellername \n",
+					"  LEFT JOIN dim_user ub ON ub.username = s.buyername \n",
+					"  LEFT JOIN (SELECT e.event_key, e.eventname, e.date_key, cast(e.starttime as date) as sttime, c.cat_key, c.catname, v.venue_key, v.venuename, d.caldate \n",
+					"              FROM dim_event e \n",
+					"              LEFT JOIN dim_category c ON e.cat_key=c.cat_key \n",
+					"              LEFT JOIN dim_venue v ON e.venue_key = v.venue_key \n",
+					"              LEFT JOIN dim_date d ON e.date_key = d.date_key  \n",
+					"              ) ecv ON s.eventname = ecv.eventname AND s.venuename = ecv.venuename AND s.categoryname=ecv.catname AND ecv.sttime = s.eventdate \n",
+					"--   where ecv.event_key is not null"
+				],
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"df_sales = spark.sql(\"SELECT \\\n",
+					"  CASE WHEN ul.user_key IS NULL THEN -1 ELSE ul.user_key END as seller_key, \\\n",
+					"  CASE WHEN ub.user_key IS NULL THEN -1 ELSE ub.user_key END as buyer_key, \\\n",
+					"  ecv.event_key as eventid, \\\n",
+					"  ecv.date_key as dateid, \\\n",
+					"  s.qtysold, \\\n",
+					"  s.pricepaid,  s.commission,  s.saletime, current_date() as update_date, current_date() as run_date \\\n",
+					"  FROM stg_sales s  \\\n",
+					"  LEFT JOIN dim_user ul ON ul.username = s.sellername \\\n",
+					"  LEFT JOIN dim_user ub ON ub.username = s.buyername \\\n",
+					"  LEFT JOIN (SELECT e.event_key, e.eventname, e.date_key, cast(e.starttime as date) as sttime, c.cat_key, c.catname, v.venue_key, v.venuename, d.caldate \\\n",
+					"              FROM dim_event e \\\n",
+					"              LEFT JOIN dim_category c ON e.cat_key=c.cat_key \\\n",
+					"              LEFT JOIN dim_venue v ON e.venue_key = v.venue_key \\\n",
+					"              LEFT JOIN dim_date d ON e.date_key = d.date_key  \\\n",
+					"              ) ecv ON s.eventname = ecv.eventname AND s.venuename = ecv.venuename AND s.categoryname=ecv.catname AND ecv.sttime = s.eventdate \\\n",
+					"  where ecv.event_key is not null \\\n",
+					"              \")\n",
+					""
+				],
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"source_count = df_sales.count()"
+				],
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Create hash column\n",
+					"from pyspark.sql.functions import sha2, concat_ws\n",
+					"df_sales = df_sales.withColumn(\"hash_value\", sha2(concat_ws(\"||\", *df_sales.columns[4:]), 256))"
+				],
+				"execution_count": 16
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Remove duplicated data\n",
+					"df_sales.createOrReplaceTempView(\"stg_sales\")\n",
+					"df_sales = spark.sql(\"SELECT *, ROW_NUMBER() OVER (PARTITION BY hash_value ORDER BY seller_key DESC) as row_num FROM stg_sales\")\n",
+					"df_sales = df_sales.filter(\"row_num == 1\")"
+				],
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Add more 2 columns batch id and run_date\n",
+					"from pyspark.sql.functions import lit\n",
+					"df_sales = df_sales.withColumn('batch_id', lit(param_batch_id))\n",
+					"df_sales = df_sales.withColumn('run_date', lit(param_run_date))"
+				],
+				"execution_count": 20
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Convert dataframe to table to use in SQL\n",
+					"target_count = df_sales.count()\n",
+					"df_sales.createOrReplaceTempView(\"stg_sales\")"
+				],
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\n",
+					"USE dw_tickit;\n",
+					"MERGE INTO fact_sales AS trg\n",
+					"USING\n",
+					"(\n",
+					"    SELECT \n",
+					"        stg.seller_key,\n",
+					"        stg.buyer_key,\n",
+					"        stg.eventid,\n",
+					"        stg.dateid,\n",
+					"        stg.qtysold,\n",
+					"        stg.pricepaid,\n",
+					"        stg.commission,\n",
+					"        stg.saletime,\n",
+					"        stg.run_date,\n",
+					"        stg.batch_id,\n",
+					"        stg.hash_value\n",
+					"    FROM stg_sales stg\n",
+					") AS scr ON scr.seller_key = trg.seller_key AND scr.buyer_key = trg.buyer_key AND scr.eventid = trg.event_key AND scr.dateid = trg.date_key\n",
+					"\n",
+					"WHEN NOT MATCHED THEN \n",
+					"        INSERT(seller_key, buyer_key,event_key,date_key,qtysold,pricepaid,commission,saletime,update_date,run_date,batch_id,hash)\n",
+					"        VALUES(scr.seller_key, scr.buyer_key,scr.eventid,scr.dateid,scr.qtysold,scr.pricepaid,scr.commission,scr.saletime,current_date(),scr.run_date,scr.batch_id,scr.hash_value)  "
+				],
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"output = str(source_count) + \",\" + str(target_count)\n",
+					"mssparkutils.notebook.exit(output)"
+				],
+				"execution_count": 23
+			}
+		]
+	}
+}

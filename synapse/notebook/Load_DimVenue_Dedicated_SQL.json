@@ -1,0 +1,267 @@
+{
+	"name": "Load_DimVenue_Dedicated_SQL",
+	"properties": {
+		"folder": {
+			"name": "Dedicated_Load_Job"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "mainpool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/37b25916-1e2d-4883-bb99-00f8f55f2a88/resourceGroups/DataPractice/providers/Microsoft.Synapse/workspaces/synapse-ia137-dev/bigDataPools/mainpool",
+				"name": "mainpool",
+				"type": "Spark",
+				"endpoint": "https://synapse-ia137-dev.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/mainpool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.1",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"extraHeader": null
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"source": [
+					"run_date = '2021-09-22'\r\n",
+					"batch_id = 1\r\n",
+					"source_count = 0\r\n",
+					"target_count = 0\r\n",
+					"db_data_lake_path='/bronze/database/tickit/venue/2021/09/26/'\r\n",
+					"target_file = '/gold/staging/venue/venue.parquet'"
+				],
+				"attachments": null,
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"df_parquet = spark.read.parquet(db_data_lake_path)\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Remove unneccessary columns\r\n",
+					"df_venue = df_parquet.select([c for c in df_parquet.columns if c not in {'venueid'}])\r\n",
+					"source_count = df_venue.count()"
+				],
+				"attachments": null,
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Create hash column\r\n",
+					"from pyspark.sql.functions import sha2, concat_ws\r\n",
+					"df_venue = df_venue.withColumn(\"hash_value\", sha2(concat_ws(\"||\", *df_venue.columns), 256))"
+				],
+				"attachments": null,
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Remove duplicated data\r\n",
+					"df_venue.createOrReplaceTempView(\"stg_venue\")\r\n",
+					"sqlVenue = spark.sql(\"SELECT *, ROW_NUMBER() OVER (PARTITION BY hash_value ORDER BY venuename DESC) as row_num FROM stg_venue\")\r\n",
+					"sqlVenue = sqlVenue.filter(\"row_num == 1\")\r\n",
+					"#sqlVenue.count()"
+				],
+				"attachments": null,
+				"execution_count": 6
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Add more 2 columns batch id and run_date\r\n",
+					"from pyspark.sql.functions import lit\r\n",
+					"sqlVenue = sqlVenue.withColumn('batch_id', lit(batch_id))\r\n",
+					"sqlVenue = sqlVenue.withColumn('run_date', lit(run_date))"
+				],
+				"attachments": null,
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"sqlVenue.write.mode(\"overwrite\").parquet(target_file)"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"'''\r\n",
+					"#Convert dataframe to table to use in SQL\r\n",
+					"target_count = sqlVenue.count()\r\n",
+					"sqlVenue.createOrReplaceTempView(\"stg_venue\")\r\n",
+					"'''"
+				],
+				"attachments": null,
+				"execution_count": 8
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"'''\r\n",
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"MERGE INTO dim_venue AS trg\r\n",
+					"USING\r\n",
+					"(\r\n",
+					"    SELECT row_number() OVER (PARTITION BY CASE WHEN dm.venue_key IS NULL THEN 1 ELSE 0 END ORDER BY dm.venue_key) as row_num,\r\n",
+					"           (SELECT CASE WHEN MAX(venue_key)<0 THEN 0 \r\n",
+					"                        ELSE MAX(venue_key) END FROM dim_venue) AS maxid,\r\n",
+					"           stg.venuename,\r\n",
+					"           stg.venuecity,\r\n",
+					"           stg.venueseats,\r\n",
+					"           stg.venuestate,\r\n",
+					"           stg.run_date,\r\n",
+					"           stg.batch_id,\r\n",
+					"           stg.hash_value\r\n",
+					"    FROM stg_venue stg\r\n",
+					"    LEFT JOIN dim_venue dm ON stg.venuename = dm.venuename\r\n",
+					") AS scr ON scr.venuename = trg.venuename \r\n",
+					"WHEN MATCHED THEN\r\n",
+					"        UPDATE SET\r\n",
+					"                    venuecity = scr.venuecity,\r\n",
+					"                    venuestate = scr.venuestate,\r\n",
+					"                    venueseats = scr.venueseats,\r\n",
+					"                    run_date = scr.run_date,\r\n",
+					"                    batch_id = scr.batch_id,\r\n",
+					"                    hash = scr.hash_value,\r\n",
+					"                    update_date = current_date()\r\n",
+					"WHEN NOT MATCHED THEN \r\n",
+					"        INSERT(venue_key, venuename,venuecity,venuestate,venueseats,update_date,run_date,batch_id,hash)\r\n",
+					"        VALUES(scr.row_num + scr.maxid, scr.venuename,scr.venuecity,scr.venuestate,scr.venueseats,current_date(),scr.run_date,scr.batch_id,scr.hash_value)  \r\n",
+					"'''"
+				],
+				"attachments": null,
+				"execution_count": 30
+			}
+		]
+	}
+}

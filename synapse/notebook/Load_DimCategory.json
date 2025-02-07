@@ -1,0 +1,376 @@
+{
+	"name": "Load_DimCategory",
+	"properties": {
+		"folder": {
+			"name": "Delta_Load_Job"
+		},
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "mainpool",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2,
+			"conf": {
+				"spark.dynamicAllocation.enabled": "false",
+				"spark.dynamicAllocation.minExecutors": "2",
+				"spark.dynamicAllocation.maxExecutors": "2"
+			}
+		},
+		"metadata": {
+			"saveOutput": true,
+			"enableDebugMode": false,
+			"kernelspec": {
+				"name": "synapse_pyspark",
+				"display_name": "Synapse PySpark"
+			},
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/37b25916-1e2d-4883-bb99-00f8f55f2a88/resourceGroups/DataPractice/providers/Microsoft.Synapse/workspaces/synapse-ia137-dev/bigDataPools/mainpool",
+				"name": "mainpool",
+				"type": "Spark",
+				"endpoint": "https://synapse-ia137-dev.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/mainpool",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "3.1",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28,
+				"automaticScaleJobs": false
+			},
+			"sessionKeepAliveTimeout": 30
+		},
+		"cells": [
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": true
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"tags": [
+						"parameters"
+					]
+				},
+				"source": [
+					"#Get parameters here\r\n",
+					"param_run_date = '2021-10-15'\r\n",
+					"param_batch_id = 1\r\n",
+					"param_db_data_lake_path='/bronze/database/tickit/'\r\n",
+					"#param_file_data_lake_path = \"/bronze/flatfile/\"\r\n",
+					""
+				],
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"source_count = 0\r\n",
+					"target_count = 0"
+				],
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Get path to retrieve data\r\n",
+					"run_date_replace = param_run_date.replace(\"-\",\"/\")\r\n",
+					"db_data_lake_path = param_db_data_lake_path + \"category/\" + run_date_replace + \"/\"\r\n",
+					"#file_data_lake_path = param_file_data_lake_path + \"category/\"\r\n",
+					""
+				],
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Read data file parquet\r\n",
+					"df_parquet = spark.read.parquet(db_data_lake_path)\r\n",
+					""
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"When processing data in data warehouse, there are many resources comming. In this simple, not only do we get data from parquet file (from relationdb in previous step) but also we\r\n",
+					"assume that we also have data from another source. And in this case it is csv file\r\n",
+					"\r\n",
+					"Here csv file is assumed that it is put in blob storage \"commondatasolutions\" and container = \"rawdata\" in folder=\"category\"\r\n",
+					"\r\n",
+					"If reading file requires secret key tou can follow as below:\r\n",
+					"\r\n",
+					"storage_account_name = 'nameofyourstorageaccount'\r\n",
+					"storage_account_access_key = 'thekeyfortheblobcontainer'\r\n",
+					"spark.conf.set('fs.azure.account.key.' + storage_account_name + '.blob.core.windows.net', storage_account_access_key)\r\n",
+					"\r\n",
+					"blob_container = 'yourblobcontainername'\r\n",
+					"filePath = \"wasbs://\" + blob_container + \"@\" + storage_account_name + \".blob.core.windows.net/category/category.csv\"\r\n",
+					"salesDf = spark.read.format(\"csv\").load(filePath, inferSchema = True, header = True)\r\n",
+					""
+				]
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "python"
+					}
+				},
+				"source": [
+					"%%pyspark\r\n",
+					"file_data_lake_path = \"wasbs://rawdata@commondatasolutions.blob.core.windows.net/category/Category.csv\"\r\n",
+					"df_csv = spark.read.csv(file_data_lake_path,header=True)"
+				],
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Select columns and unionAll 2 dataframe together\r\n",
+					"df_parquet = df_parquet[['catid', 'catgroup', 'catname', 'catdesc']]\r\n",
+					"df_csv = df_csv[['cat_id', 'cat_group', 'cat_name', 'description']]\r\n",
+					"df_Category = df_parquet.unionAll(df_csv)\r\n",
+					"source_count = df_Category.count()"
+				],
+				"execution_count": 23
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Remove catId is null\r\n",
+					"df_Category_NotNull = df_Category.filter(\"catid is not NULL\")"
+				],
+				"execution_count": 24
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Create hash column\r\n",
+					"from pyspark.sql.functions import sha2, concat_ws\r\n",
+					"df_Category_NotNull = df_Category_NotNull.withColumn(\"hash_value\", sha2(concat_ws(\"||\", *df_Category_NotNull.columns[1:]), 256))\r\n",
+					"s =concat_ws(\"||\", *df_Category_NotNull.columns)"
+				],
+				"execution_count": 25
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Remove duplicated data\r\n",
+					"df_Category_NotNull.createOrReplaceTempView(\"stg_category\")\r\n",
+					"sqlCategory = spark.sql(\"SELECT *, ROW_NUMBER() OVER (PARTITION BY hash_value ORDER BY catid DESC) as row_num FROM stg_category\")\r\n",
+					"sqlCategory1 = sqlCategory.filter(\"row_num == 1\")"
+				],
+				"execution_count": 26
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Add more 2 columns batch id and run_date\r\n",
+					"from pyspark.sql.functions import lit\r\n",
+					"sqlCategory1 = sqlCategory1.withColumn('batch_id', lit(param_batch_id))\r\n",
+					"sqlCategory1 = sqlCategory1.withColumn('run_date', lit(param_run_date))"
+				],
+				"execution_count": 27
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#Convert dataframe to table to use in SQL\r\n",
+					"target_count = sqlCategory1.count()\r\n",
+					"sqlCategory1.createOrReplaceTempView(\"stg_category\")"
+				],
+				"execution_count": 28
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "sparksql"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%sql\r\n",
+					"USE dw_tickit;\r\n",
+					"MERGE INTO dim_category AS trg\r\n",
+					"USING\r\n",
+					"(\r\n",
+					"    SELECT row_number() OVER (PARTITION BY CASE WHEN dm.catid IS NULL THEN 1 ELSE 0 END ORDER BY stg.catid) as row_num,\r\n",
+					"           (SELECT CASE WHEN MAX(cat_key)<0 THEN 0 \r\n",
+					"                        ELSE MAX(cat_key) END FROM dim_category) AS maxid,\r\n",
+					"           stg.catid,\r\n",
+					"           stg.catgroup,\r\n",
+					"           stg.catname,\r\n",
+					"           stg.catdesc,\r\n",
+					"           stg.run_date,\r\n",
+					"           stg.batch_id,\r\n",
+					"           stg.hash_value\r\n",
+					"    FROM stg_category stg\r\n",
+					"    LEFT JOIN dim_category dm ON stg.catid = dm.catid\r\n",
+					") AS scr ON scr.catid = trg.catid --and scr.hash_value <> trg.hash\r\n",
+					"WHEN MATCHED THEN\r\n",
+					"        UPDATE SET\r\n",
+					"                    catid = scr.catid,\r\n",
+					"                    catgroup = scr.catgroup,\r\n",
+					"                    catname = scr.catname,\r\n",
+					"                    catdesc = scr.catdesc,\r\n",
+					"                    run_date = scr.run_date,\r\n",
+					"                    batch_id = scr.batch_id,\r\n",
+					"                    hash = scr.hash_value,\r\n",
+					"                    update_date = current_date()\r\n",
+					"WHEN NOT MATCHED THEN \r\n",
+					"        INSERT(cat_key, catid,catgroup,catname,catdesc,update_date,run_date,batch_id,hash)\r\n",
+					"        VALUES(scr.row_num + scr.maxid, scr.catid,scr.catgroup,scr.catname,scr.catdesc,current_date(),scr.run_date,scr.batch_id,scr.hash_value)  "
+				],
+				"execution_count": 29
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"output = str(source_count) + \",\" + str(target_count)\r\n",
+					"mssparkutils.notebook.exit(output)"
+				],
+				"execution_count": null
+			}
+		]
+	}
+}

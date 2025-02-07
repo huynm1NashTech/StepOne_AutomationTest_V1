@@ -1,0 +1,13 @@
+{
+	"name": "ds_db_src_onprem",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ls_dbsource_onpremise",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "SqlServerTable",
+		"schema": []
+	},
+	"type": "Microsoft.Synapse/workspaces/datasets"
+}

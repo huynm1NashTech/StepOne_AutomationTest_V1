@@ -1,0 +1,34 @@
+{
+	"name": "ls_datalake",
+	"properties": {
+		"description": "storage data from source postgres and flat files",
+		"parameters": {
+			"storage_base_url": {
+				"type": "string",
+				"defaultValue": "https://storageia137dev.dfs.core.windows.net/"
+			}
+		},
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "@{linkedService().storage_base_url}",
+			"accountKey": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "ls_keyvault",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"vault_base_url": "https://vault-ia137-dev.vault.azure.net/"
+					}
+				},
+				"secretName": "datalakeconn",
+				"secretVersion": ""
+			}
+		},
+		"connectVia": {
+			"referenceName": "AutoResolveIntegrationRuntime",
+			"type": "IntegrationRuntimeReference"
+		}
+	},
+	"type": "Microsoft.Synapse/workspaces/linkedservices"
+}

@@ -1,0 +1,20 @@
+{
+	"name": "ls_dbAudit",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"connectionString": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "ls_keyvault",
+					"type": "LinkedServiceReference",
+					"parameters": {
+						"vault_base_url": "https://vault-ia137-dev.vault.azure.net/"
+					}
+				},
+				"secretName": "azuresql"
+			}
+		}
+	}
+}
